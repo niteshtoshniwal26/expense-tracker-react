@@ -22,10 +22,11 @@ const Header = ({children}) => (
   </div>
 );
 
-// ---------- MAIN APP ----------
+// ---------------- APP ----------------
 function App(){
 
   const [page,setPage]=React.useState("home");
+  const [search,setSearch]=React.useState("");
 
   const [expenses,setExpenses]=React.useState(
     JSON.parse(localStorage.getItem("expenses"))||[]
@@ -41,7 +42,6 @@ function App(){
 
   const [editIndex,setEditIndex]=React.useState(null);
 
-  // ---------- SAVE ----------
   const saveExpense=(data)=>{
     if(!data.amount || data.amount<=0) return;
 
@@ -79,7 +79,12 @@ function App(){
     a.click();
   };
 
-  // ---------- INSIGHTS ----------
+  // ---------- FILTER ----------
+  const filtered = expenses.filter(e =>
+    JSON.stringify(e).toLowerCase().includes(search.toLowerCase())
+  );
+
+  // ---------- SUMMARY ----------
   let total=0,catTotals={};
   expenses.forEach(e=>{
     total+=Number(e.amount);
@@ -101,13 +106,18 @@ function App(){
           <div className="p-4 -mt-6">
 
             <div className="bg-white p-3 rounded-xl shadow mb-3">
-              <input placeholder="Search..." className="w-full p-2"/>
+              <input
+                placeholder="Search..."
+                className="w-full p-2"
+                value={search}
+                onChange={e=>setSearch(e.target.value)}
+              />
               <button onClick={exportCSV} className="mt-2 w-full bg-blue-500 text-white p-2 rounded">
                 Export CSV
               </button>
             </div>
 
-            {expenses.map((e,i)=>(
+            {filtered.map((e,i)=>(
               <div key={i} className="bg-white p-4 rounded-2xl shadow mb-3 flex justify-between items-center">
                 <div>
                   <div className="text-lg font-bold">₹{e.amount}</div>
@@ -125,13 +135,10 @@ function App(){
         </>
       )}
 
-      {/* ADD PAGE */}
+      {/* ADD */}
       {page==="add" && (
         <>
-          <Header>
-            <h2>Add Expense</h2>
-          </Header>
-
+          <Header><h2>Add Expense</h2></Header>
           <div className="p-4 -mt-6">
             <Form categories={categories} payments={payments} onSave={saveExpense}/>
           </div>
@@ -142,7 +149,6 @@ function App(){
       {page==="settings" && (
         <>
           <Header><h2>Settings</h2></Header>
-
           <div className="p-4 -mt-6">
             <Settings
               categories={categories}
@@ -150,6 +156,28 @@ function App(){
               setCategories={setCategories}
               setPayments={setPayments}
             />
+          </div>
+        </>
+      )}
+
+      {/* SUMMARY */}
+      {page==="summary" && (
+        <>
+          <Header><h2>Summary</h2></Header>
+          <div className="p-4 -mt-6">
+            <div className="bg-white p-4 rounded-xl shadow">
+              <div>Total Spend: ₹{total}</div>
+              <div className="mt-2">Top Category: {top}</div>
+
+              <div className="mt-4">
+                {Object.entries(catTotals).map(([k,v])=>(
+                  <div key={k} className="flex justify-between">
+                    <span>{k}</span>
+                    <span>₹{v}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </>
       )}
@@ -173,6 +201,7 @@ function App(){
       <div className="fixed bottom-0 w-full bg-white border-t flex">
         <button className="flex-1 p-2" onClick={()=>setPage("add")}>➕<div>Add</div></button>
         <button className="flex-1 p-2" onClick={()=>setPage("home")}>📊<div>History</div></button>
+        <button className="flex-1 p-2" onClick={()=>setPage("summary")}>📈<div>Summary</div></button>
         <button className="flex-1 p-2" onClick={()=>setPage("settings")}>⚙️<div>Settings</div></button>
       </div>
 
@@ -192,7 +221,10 @@ function Form({data={},categories,payments,onSave}){
 
   return(
     <div className="bg-white p-4 rounded-2xl shadow">
-      <input type="number" placeholder="Amount"
+      <input
+        type="number"
+        inputMode="decimal"
+        placeholder="Amount"
         className="w-full p-3 border rounded mb-2"
         value={form.amount}
         onChange={e=>setForm({...form,amount:e.target.value})}
@@ -232,42 +264,50 @@ function Form({data={},categories,payments,onSave}){
 // ---------- SETTINGS ----------
 function Settings({categories,payments,setCategories,setPayments}){
 
-  const [c,setC]=React.useState("");
-  const [p,setP]=React.useState("");
+  const [editCat,setEditCat]=React.useState(null);
+  const [editPay,setEditPay]=React.useState(null);
 
-  const addCat=()=>{
-    if(!c||categories.includes(c)) return;
-    const arr=[...categories,c];
-    setCategories(arr);
-    localStorage.setItem("categories",JSON.stringify(arr));
+  const updateLocal=(key,data)=>{
+    localStorage.setItem(key,JSON.stringify(data));
   };
 
-  const addPay=()=>{
-    if(!p||payments.includes(p)) return;
-    const arr=[...payments,p];
-    setPayments(arr);
-    localStorage.setItem("payments",JSON.stringify(arr));
+  const deleteItem=(arr,setArr,key,i)=>{
+    const newArr=[...arr];
+    newArr.splice(i,1);
+    setArr(newArr);
+    updateLocal(key,newArr);
+  };
+
+  const updateItem=(arr,setArr,key,i,val)=>{
+    const newArr=[...arr];
+    newArr[i]=val;
+    setArr(newArr);
+    updateLocal(key,newArr);
   };
 
   return(
     <>
       <div className="bg-white p-4 rounded-xl shadow mb-3">
         <h3>Categories</h3>
-        <input onChange={e=>setC(e.target.value)} className="w-full p-2 border"/>
-        <button onClick={addCat}>Add Category</button>
-        {categories.map((x,i)=>(
+        {categories.map((c,i)=>(
           <div key={i} className="flex justify-between mt-2">
-            {x}
+            {editCat===i ? (
+              <input defaultValue={c} onBlur={(e)=>updateItem(categories,setCategories,"categories",i,e.target.value)} />
+            ) : <span onClick={()=>setEditCat(i)}>{c}</span>}
+            <button onClick={()=>deleteItem(categories,setCategories,"categories",i)}>❌</button>
           </div>
         ))}
       </div>
 
       <div className="bg-white p-4 rounded-xl shadow">
         <h3>Payments</h3>
-        <input onChange={e=>setP(e.target.value)} className="w-full p-2 border"/>
-        <button onClick={addPay}>Add Payment</button>
-        {payments.map((x,i)=>(
-          <div key={i}>{x}</div>
+        {payments.map((p,i)=>(
+          <div key={i} className="flex justify-between mt-2">
+            {editPay===i ? (
+              <input defaultValue={p} onBlur={(e)=>updateItem(payments,setPayments,"payments",i,e.target.value)} />
+            ) : <span onClick={()=>setEditPay(i)}>{p}</span>}
+            <button onClick={()=>deleteItem(payments,setPayments,"payments",i)}>❌</button>
+          </div>
         ))}
       </div>
     </>
