@@ -7,83 +7,117 @@
 <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
 <script src="https://cdn.tailwindcss.com"></script>
+
 </head>
 
-<body class="bg-gray-100">
-
+<body class="bg-[#F2F2F7]">
 <div id="root"></div>
 
 <script type="text/babel">
 
-function Header({title, subtitle}) {
-  return (
-    <div className="bg-gradient-to-r from-blue-400 to-cyan-400 text-white p-6 rounded-b-3xl">
-      <h2 className="text-xl font-bold">{title}</h2>
-      <p>{subtitle}</p>
-    </div>
+const Header = ({children}) => (
+  <div className="bg-gradient-to-r from-blue-500 to-green-400 text-white p-6 pb-10 rounded-b-3xl shadow">
+    {children}
+  </div>
+);
+
+// ---------- MAIN APP ----------
+function App(){
+
+  const [page,setPage]=React.useState("home");
+
+  const [expenses,setExpenses]=React.useState(
+    JSON.parse(localStorage.getItem("expenses"))||[]
   );
-}
 
-function App() {
+  const [categories,setCategories]=React.useState(
+    JSON.parse(localStorage.getItem("categories"))||["Fuel","Food","Grocery","Other"]
+  );
 
-  const [page, setPage] = React.useState("home");
-  const [expenses, setExpenses] = React.useState(JSON.parse(localStorage.getItem("expenses")) || []);
+  const [payments,setPayments]=React.useState(
+    JSON.parse(localStorage.getItem("payments"))||["ICICI","SBI","Coral CC","Emerald CC"]
+  );
 
-  const [form, setForm] = React.useState({
-    amount:"",
-    category:"Fuel",
-    payment:"ICICI",
-    date:new Date().toISOString().split('T')[0],
-    details:""
-  });
+  const [editIndex,setEditIndex]=React.useState(null);
 
-  const categories = JSON.parse(localStorage.getItem("categories")) || ["Fuel","Food","Grocery","Other"];
-  const payments = JSON.parse(localStorage.getItem("payments")) || ["ICICI","SBI","Coral CC","Emerald CC"];
+  // ---------- SAVE ----------
+  const saveExpense=(data)=>{
+    if(!data.amount || data.amount<=0) return;
 
-  const save = ()=>{
-    if(!form.amount || form.amount<=0) return;
-
-    const newData = [...expenses, form];
-    setExpenses(newData);
-    localStorage.setItem("expenses", JSON.stringify(newData));
-
-    setForm({...form, amount:"", details:""});
+    const arr=[...expenses,data];
+    setExpenses(arr);
+    localStorage.setItem("expenses",JSON.stringify(arr));
     setPage("home");
   };
 
-  const deleteExp = (i)=>{
+  const deleteExp=(i)=>{
     if(!confirm("Delete?")) return;
     const arr=[...expenses];
     arr.splice(i,1);
     setExpenses(arr);
-    localStorage.setItem("expenses", JSON.stringify(arr));
+    localStorage.setItem("expenses",JSON.stringify(arr));
   };
 
-  let total = expenses.reduce((a,b)=>a+Number(b.amount),0);
+  const updateExpense=(data)=>{
+    const arr=[...expenses];
+    arr[editIndex]=data;
+    setExpenses(arr);
+    localStorage.setItem("expenses",JSON.stringify(arr));
+    setEditIndex(null);
+  };
 
-  return (
-    <div>
+  const exportCSV=()=>{
+    let csv="Date,Details,Category,Payment,Amount\n";
+    expenses.forEach(e=>{
+      csv+=`${e.date},${e.details},${e.category},${e.payment},${e.amount}\n`;
+    });
+    const blob=new Blob([csv]);
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="expenses.csv";
+    a.click();
+  };
 
+  // ---------- INSIGHTS ----------
+  let total=0,catTotals={};
+  expenses.forEach(e=>{
+    total+=Number(e.amount);
+    catTotals[e.category]=(catTotals[e.category]||0)+Number(e.amount);
+  });
+  let top=Object.keys(catTotals).reduce((a,b)=>catTotals[a]>catTotals[b]?a:b,"");
+
+  return(
+    <div className="pb-20">
+
+      {/* HOME */}
       {page==="home" && (
         <>
-          <Header title={`₹ ${total}`} subtitle="Your expenses" />
+          <Header>
+            <h2 className="text-2xl font-bold">₹{total}</h2>
+            <p className="text-sm">{top && `Mostly spent on ${top}`}</p>
+          </Header>
 
-          <div className="p-4 -mt-4">
+          <div className="p-4 -mt-6">
 
-            <button onClick={()=>setPage("add")} className="w-full mb-3 bg-blue-500 text-white p-3 rounded-xl">
-              + Add Expense
-            </button>
+            <div className="bg-white p-3 rounded-xl shadow mb-3">
+              <input placeholder="Search..." className="w-full p-2"/>
+              <button onClick={exportCSV} className="mt-2 w-full bg-blue-500 text-white p-2 rounded">
+                Export CSV
+              </button>
+            </div>
 
             {expenses.map((e,i)=>(
-              <div key={i} className="bg-white p-4 rounded-2xl shadow mb-3 flex justify-between">
+              <div key={i} className="bg-white p-4 rounded-2xl shadow mb-3 flex justify-between items-center">
                 <div>
-                  <div className="font-bold">₹{e.amount}</div>
+                  <div className="text-lg font-bold">₹{e.amount}</div>
                   <div className="text-xs text-gray-500">{e.category} • {e.payment}</div>
                   <div className="text-xs text-gray-400">{e.date}</div>
                 </div>
-                <button onClick={()=>deleteExp(i)}>❌</button>
+                <div>
+                  <button onClick={()=>setEditIndex(i)}>✏️</button>
+                  <button onClick={()=>deleteExp(i)}>❌</button>
+                </div>
               </div>
             ))}
 
@@ -91,62 +125,157 @@ function App() {
         </>
       )}
 
+      {/* ADD PAGE */}
       {page==="add" && (
         <>
-          <Header title="Add Expense" />
+          <Header>
+            <h2>Add Expense</h2>
+          </Header>
 
-          <div className="p-4 -mt-4">
-            <div className="bg-white p-4 rounded-2xl shadow">
-
-              <input type="number" placeholder="Amount"
-                className="w-full p-3 border rounded-xl mb-2"
-                value={form.amount}
-                onChange={e=>setForm({...form,amount:e.target.value})}
-              />
-
-              <select className="w-full p-3 border rounded-xl mb-2"
-                onChange={e=>setForm({...form,category:e.target.value})}>
-                {categories.map(c=><option key={c}>{c}</option>)}
-              </select>
-
-              <select className="w-full p-3 border rounded-xl mb-2"
-                onChange={e=>setForm({...form,payment:e.target.value})}>
-                {payments.map(p=><option key={p}>{p}</option>)}
-              </select>
-
-              <input type="date"
-                className="w-full p-3 border rounded-xl mb-2"
-                value={form.date}
-                onChange={e=>setForm({...form,date:e.target.value})}
-              />
-
-              <input placeholder="Details"
-                className="w-full p-3 border rounded-xl mb-2"
-                value={form.details}
-                onChange={e=>setForm({...form,details:e.target.value})}
-              />
-
-              <button onClick={save} className="w-full bg-gradient-to-r from-blue-400 to-cyan-400 text-white p-3 rounded-xl">
-                Save
-              </button>
-
-            </div>
+          <div className="p-4 -mt-6">
+            <Form categories={categories} payments={payments} onSave={saveExpense}/>
           </div>
         </>
       )}
 
-      <div className="fixed bottom-0 w-full flex bg-white border-t">
-        <button className="flex-1 p-2" onClick={()=>setPage("home")}>📊</button>
-        <button className="flex-1 p-2" onClick={()=>setPage("add")}>➕</button>
+      {/* SETTINGS */}
+      {page==="settings" && (
+        <>
+          <Header><h2>Settings</h2></Header>
+
+          <div className="p-4 -mt-6">
+            <Settings
+              categories={categories}
+              payments={payments}
+              setCategories={setCategories}
+              setPayments={setPayments}
+            />
+          </div>
+        </>
+      )}
+
+      {/* EDIT MODAL */}
+      {editIndex!==null && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
+          <div className="bg-white p-4 rounded-xl w-11/12">
+            <Form
+              data={expenses[editIndex]}
+              categories={categories}
+              payments={payments}
+              onSave={updateExpense}
+            />
+            <button onClick={()=>setEditIndex(null)}>Close</button>
+          </div>
+        </div>
+      )}
+
+      {/* NAV */}
+      <div className="fixed bottom-0 w-full bg-white border-t flex">
+        <button className="flex-1 p-2" onClick={()=>setPage("add")}>➕<div>Add</div></button>
+        <button className="flex-1 p-2" onClick={()=>setPage("home")}>📊<div>History</div></button>
+        <button className="flex-1 p-2" onClick={()=>setPage("settings")}>⚙️<div>Settings</div></button>
       </div>
 
     </div>
   );
 }
 
+// ---------- FORM ----------
+function Form({data={},categories,payments,onSave}){
+  const [form,setForm]=React.useState({
+    amount:data.amount||"",
+    category:data.category||categories[0],
+    payment:data.payment||payments[0],
+    date:data.date||new Date().toISOString().split('T')[0],
+    details:data.details||""
+  });
+
+  return(
+    <div className="bg-white p-4 rounded-2xl shadow">
+      <input type="number" placeholder="Amount"
+        className="w-full p-3 border rounded mb-2"
+        value={form.amount}
+        onChange={e=>setForm({...form,amount:e.target.value})}
+      />
+
+      <select className="w-full p-3 border rounded mb-2"
+        onChange={e=>setForm({...form,category:e.target.value})}>
+        {categories.map(c=><option key={c}>{c}</option>)}
+      </select>
+
+      <select className="w-full p-3 border rounded mb-2"
+        onChange={e=>setForm({...form,payment:e.target.value})}>
+        {payments.map(p=><option key={p}>{p}</option>)}
+      </select>
+
+      <input type="date"
+        className="w-full p-3 border rounded mb-2"
+        value={form.date}
+        onChange={e=>setForm({...form,date:e.target.value})}
+      />
+
+      <input placeholder="Details"
+        className="w-full p-3 border rounded mb-2"
+        value={form.details}
+        onChange={e=>setForm({...form,details:e.target.value})}
+      />
+
+      <button
+        onClick={()=>onSave(form)}
+        className="w-full bg-gradient-to-r from-blue-500 to-green-400 text-white p-3 rounded-xl">
+        Save Expense
+      </button>
+    </div>
+  );
+}
+
+// ---------- SETTINGS ----------
+function Settings({categories,payments,setCategories,setPayments}){
+
+  const [c,setC]=React.useState("");
+  const [p,setP]=React.useState("");
+
+  const addCat=()=>{
+    if(!c||categories.includes(c)) return;
+    const arr=[...categories,c];
+    setCategories(arr);
+    localStorage.setItem("categories",JSON.stringify(arr));
+  };
+
+  const addPay=()=>{
+    if(!p||payments.includes(p)) return;
+    const arr=[...payments,p];
+    setPayments(arr);
+    localStorage.setItem("payments",JSON.stringify(arr));
+  };
+
+  return(
+    <>
+      <div className="bg-white p-4 rounded-xl shadow mb-3">
+        <h3>Categories</h3>
+        <input onChange={e=>setC(e.target.value)} className="w-full p-2 border"/>
+        <button onClick={addCat}>Add Category</button>
+        {categories.map((x,i)=>(
+          <div key={i} className="flex justify-between mt-2">
+            {x}
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-white p-4 rounded-xl shadow">
+        <h3>Payments</h3>
+        <input onChange={e=>setP(e.target.value)} className="w-full p-2 border"/>
+        <button onClick={addPay}>Add Payment</button>
+        {payments.map((x,i)=>(
+          <div key={i}>{x}</div>
+        ))}
+      </div>
+    </>
+  );
+}
+
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 
 </script>
-
 </body>
 </html>
