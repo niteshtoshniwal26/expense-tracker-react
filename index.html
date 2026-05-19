@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#F2F2F7">
 <title>Expenses</title>
@@ -887,12 +888,10 @@ function ExpenseSheet({ data, categories, payments, onSave, onClose }) {
               />
             </div>
             <div className="ios-row">
-              <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>
-                Description<span style={{ color: 'var(--ios-red)' }}>*</span>
-              </span>
+              <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>Description</span>
               <input
                 ref={detailsRef}
-                placeholder="Required"
+                placeholder="What was it for?"
                 value={form.details}
                 onChange={e => setForm({ ...form, details: e.target.value })}
                 className="ios-input text-right"
@@ -919,10 +918,6 @@ function ExpenseSheet({ data, categories, payments, onSave, onClose }) {
                 {payments.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
-          </div>
-
-          <div className="ios-footer-text">
-            <span style={{ color: 'var(--ios-red)' }}>*</span> Required field
           </div>
 
           <div className="h-8" />
