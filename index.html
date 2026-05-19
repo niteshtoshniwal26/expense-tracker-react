@@ -11,7 +11,6 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
 
 <style>
   :root {
@@ -162,7 +161,6 @@
   }
   input[type="number"] { -moz-appearance: textfield; }
 
-  /* Native-looking select */
   .ios-select {
     appearance: none;
     -webkit-appearance: none;
@@ -177,6 +175,10 @@
     background-repeat: no-repeat;
     background-position: right center;
   }
+
+  /* Chart bar hover/tap */
+  .bar-segment { transition: opacity 0.15s; }
+  .bar-segment:active { opacity: 0.7; }
 </style>
 
 </head>
@@ -185,8 +187,6 @@
 <div id="root"></div>
 
 <script type="text/babel">
-
-const { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } = Recharts;
 
 // ============== UTILITIES ==============
 
@@ -197,10 +197,10 @@ const formatINR = (n) => {
 
 const formatINRCompact = (n) => {
   const num = Number(n) || 0;
-  if (num >= 10000000) return `₹${(num/10000000).toFixed(1)}Cr`;
-  if (num >= 100000) return `₹${(num/100000).toFixed(1)}L`;
-  if (num >= 1000) return `₹${(num/1000).toFixed(1)}k`;
-  return `₹${num}`;
+  if (num >= 10000000) return `${(num/10000000).toFixed(1)}Cr`;
+  if (num >= 100000) return `${(num/100000).toFixed(1)}L`;
+  if (num >= 1000) return `${(num/1000).toFixed(1)}k`;
+  return `${num}`;
 };
 
 const todayISO = () => new Date().toISOString().split('T')[0];
@@ -218,7 +218,6 @@ const monthLabelShort = (key) => {
   return d.toLocaleDateString('en-IN', { month: 'short' });
 };
 
-// Stable color per category name
 const PALETTE = [
   '#007AFF', '#FF9500', '#34C759', '#FF3B30', '#AF52DE',
   '#FF2D55', '#5856D6', '#5AC8FA', '#FFCC00', '#30D158',
@@ -241,6 +240,173 @@ const load = (key, fallback) => {
   catch { return fallback; }
 };
 const save = (key, val) => localStorage.setItem(key, JSON.stringify(val));
+
+// ============== CUSTOM SVG CHARTS ==============
+
+// Donut chart with SVG arcs
+function DonutChart({ data, size = 200 }) {
+  const total = data.reduce((s, d) => s + d.value, 0);
+  if (total === 0) return null;
+
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = size / 2 - 10;
+  const innerR = r * 0.6;
+
+  let currentAngle = -Math.PI / 2; // start at top
+
+  const arcs = data.map((d, i) => {
+    const angle = (d.value / total) * Math.PI * 2;
+    const startAngle = currentAngle;
+    const endAngle = currentAngle + angle;
+
+    const x1 = cx + r * Math.cos(startAngle);
+    const y1 = cy + r * Math.sin(startAngle);
+    const x2 = cx + r * Math.cos(endAngle);
+    const y2 = cy + r * Math.sin(endAngle);
+
+    const x3 = cx + innerR * Math.cos(endAngle);
+    const y3 = cy + innerR * Math.sin(endAngle);
+    const x4 = cx + innerR * Math.cos(startAngle);
+    const y4 = cy + innerR * Math.sin(startAngle);
+
+    const largeArc = angle > Math.PI ? 1 : 0;
+
+    const path = data.length === 1
+      ? `M ${cx - r} ${cy} A ${r} ${r} 0 1 1 ${cx + r} ${cy} A ${r} ${r} 0 1 1 ${cx - r} ${cy} M ${cx - innerR} ${cy} A ${innerR} ${innerR} 0 1 0 ${cx + innerR} ${cy} A ${innerR} ${innerR} 0 1 0 ${cx - innerR} ${cy} Z`
+      : `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} L ${x3} ${y3} A ${innerR} ${innerR} 0 ${largeArc} 0 ${x4} ${y4} Z`;
+
+    currentAngle = endAngle;
+
+    return (
+      <path
+        key={i}
+        d={path}
+        fill={d.color}
+        stroke="white"
+        strokeWidth="2"
+      />
+    );
+  });
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      {arcs}
+      <text
+        x={cx}
+        y={cy - 6}
+        textAnchor="middle"
+        fontSize="11"
+        fill="rgba(60,60,67,0.6)"
+        style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}
+      >
+        Total
+      </text>
+      <text
+        x={cx}
+        y={cy + 14}
+        textAnchor="middle"
+        fontSize="18"
+        fontWeight="600"
+        fill="#000"
+        style={{ fontVariantNumeric: 'tabular-nums' }}
+      >
+        ₹{formatINRCompact(total)}
+      </text>
+    </svg>
+  );
+}
+
+// Vertical bar chart for monthly trend
+function BarChart({ data, highlightKey, height = 180, onBarTap }) {
+  const [tapped, setTapped] = React.useState(null);
+
+  const max = Math.max(...data.map(d => d.value), 1);
+  const barWidth = 100 / data.length;
+  const chartHeight = height - 40;
+
+  // Y-axis ticks (3 levels)
+  const yTicks = [0, max / 2, max];
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <svg viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" width="100%" height={height}>
+        {/* Grid lines */}
+        {yTicks.map((t, i) => {
+          const y = chartHeight - (t / max) * chartHeight + 10;
+          return (
+            <line
+              key={i}
+              x1="0" x2="100"
+              y1={y} y2={y}
+              stroke="rgba(60,60,67,0.08)"
+              strokeWidth="0.3"
+              vectorEffect="non-scaling-stroke"
+            />
+          );
+        })}
+
+        {/* Bars */}
+        {data.map((d, i) => {
+          const h = (d.value / max) * chartHeight;
+          const x = i * barWidth + barWidth * 0.2;
+          const w = barWidth * 0.6;
+          const y = chartHeight - h + 10;
+          const isHighlight = d.key === highlightKey;
+          const fill = isHighlight ? 'var(--ios-blue)' : 'rgba(0,122,255,0.3)';
+
+          return (
+            <g key={i}>
+              <rect
+                x={x} y={y} width={w} height={h || 0.5}
+                fill={fill}
+                rx="1.5"
+                ry="1.5"
+                onClick={() => { setTapped(i); onBarTap?.(d); }}
+                style={{ cursor: 'pointer' }}
+              />
+            </g>
+          );
+        })}
+      </svg>
+
+      {/* Month labels — separate so they don't squash */}
+      <div style={{ display: 'flex', marginTop: 4 }}>
+        {data.map((d, i) => (
+          <div
+            key={i}
+            style={{
+              flex: 1,
+              textAlign: 'center',
+              fontSize: 11,
+              color: d.key === highlightKey ? 'var(--ios-blue)' : 'var(--ios-secondary)',
+              fontWeight: d.key === highlightKey ? 600 : 400
+            }}
+          >
+            {d.label}
+          </div>
+        ))}
+      </div>
+
+      {/* Tooltip */}
+      {tapped !== null && data[tapped] && (
+        <div style={{
+          position: 'absolute',
+          top: 4, left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(0,0,0,0.85)',
+          color: 'white',
+          padding: '4px 10px',
+          borderRadius: 8,
+          fontSize: 12,
+          pointerEvents: 'none'
+        }}>
+          {data[tapped].label}: ₹{formatINR(data[tapped].value)}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ============== APP ==============
 function App() {
@@ -348,7 +514,6 @@ function App() {
   };
 
   const exportCSV = () => {
-    // Detailed CSV with all metadata
     const headers = [
       "ID", "Date", "Description", "Category", "Payment Method", "Amount (INR)",
       "Day of Week", "Month", "Year", "Created Timestamp", "Last Updated"
@@ -672,7 +837,6 @@ function ExpenseSheet({ data, categories, payments, onSave, onClose }) {
   const detailsRef = React.useRef(null);
   const isEdit = !!data;
 
-  // Auto-focus description (the first mandatory field) on open
   React.useEffect(() => {
     if (!isEdit) {
       setTimeout(() => detailsRef.current?.focus(), 300);
@@ -696,7 +860,6 @@ function ExpenseSheet({ data, categories, payments, onSave, onClose }) {
         </div>
 
         <div className="p-4">
-          {/* 1. Amount — focal point */}
           <div className="text-center my-6">
             <div className="text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--ios-secondary)' }}>Amount</div>
             <div className="flex items-center justify-center gap-1">
@@ -712,7 +875,6 @@ function ExpenseSheet({ data, categories, payments, onSave, onClose }) {
             </div>
           </div>
 
-          {/* 2. Date  +  3. Description (mandatory, auto-focused)  +  4. Category  +  5. Payment */}
           <div className="ios-group">
             <div className="ios-row">
               <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>Date</span>
@@ -811,7 +973,7 @@ function SummaryPage({ expenses, monthFilter, setMonthFilter }) {
       const sum = expenses
         .filter(e => monthKey(e.date) === key)
         .reduce((s, e) => s + Number(e.amount || 0), 0);
-      months.push({ month: monthLabelShort(key), amount: sum, key });
+      months.push({ label: monthLabelShort(key), value: sum, key });
     }
     return months;
   })();
@@ -855,7 +1017,6 @@ function SummaryPage({ expenses, monthFilter, setMonthFilter }) {
         </div>
       </div>
 
-      {/* Total card */}
       <div className="px-4 mt-5">
         <div className="ios-group p-5">
           <div className="text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--ios-secondary)' }}>Total Spend</div>
@@ -874,43 +1035,15 @@ function SummaryPage({ expenses, monthFilter, setMonthFilter }) {
         </div>
       ) : (
         <>
-          {/* Category donut chart */}
+          {/* Category donut */}
           {catData.length > 0 && (
             <div className="px-4 mt-5">
               <div className="ios-section-header">Spending by Category</div>
               <div className="ios-group p-4">
-                <div style={{ width: '100%', height: 220 }}>
-                  <ResponsiveContainer>
-                    <PieChart>
-                      <Pie
-                        data={catData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={55}
-                        outerRadius={90}
-                        paddingAngle={2}
-                        dataKey="value"
-                      >
-                        {catData.map((entry, i) => (
-                          <Cell key={i} fill={entry.color} stroke="none" />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(v) => `₹${formatINR(v)}`}
-                        contentStyle={{
-                          background: 'rgba(0,0,0,0.85)',
-                          border: 'none',
-                          borderRadius: 8,
-                          color: 'white',
-                          fontSize: 13
-                        }}
-                        itemStyle={{ color: 'white' }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+                <div className="flex justify-center">
+                  <DonutChart data={catData} size={200} />
                 </div>
-                {/* Custom legend with amounts */}
-                <div className="mt-3 space-y-2">
+                <div className="mt-4 space-y-2">
                   {catData.map(d => {
                     const pct = total > 0 ? (d.value / total) * 100 : 0;
                     return (
@@ -929,54 +1062,15 @@ function SummaryPage({ expenses, monthFilter, setMonthFilter }) {
             </div>
           )}
 
-          {/* 6-month trend bar chart */}
+          {/* 6-month trend */}
           <div className="px-4 mt-5">
             <div className="ios-section-header">Last 6 Months</div>
             <div className="ios-group p-4">
-              <div style={{ width: '100%', height: 200 }}>
-                <ResponsiveContainer>
-                  <BarChart data={trendData} margin={{ top: 10, right: 5, left: -10, bottom: 0 }}>
-                    <XAxis
-                      dataKey="month"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 11, fill: 'rgba(60,60,67,0.6)' }}
-                    />
-                    <YAxis
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 10, fill: 'rgba(60,60,67,0.6)' }}
-                      tickFormatter={(v) => formatINRCompact(v)}
-                      width={50}
-                    />
-                    <Tooltip
-                      formatter={(v) => `₹${formatINR(v)}`}
-                      cursor={{ fill: 'rgba(0,122,255,0.05)' }}
-                      contentStyle={{
-                        background: 'rgba(0,0,0,0.85)',
-                        border: 'none',
-                        borderRadius: 8,
-                        color: 'white',
-                        fontSize: 13
-                      }}
-                      itemStyle={{ color: 'white' }}
-                      labelStyle={{ color: 'rgba(255,255,255,0.7)' }}
-                    />
-                    <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
-                      {trendData.map((entry, i) => (
-                        <Cell
-                          key={i}
-                          fill={entry.key === activeMonth ? 'var(--ios-blue)' : 'rgba(0,122,255,0.35)'}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              <BarChart data={trendData} highlightKey={activeMonth} height={180} />
             </div>
           </div>
 
-          {/* Payment method horizontal bars */}
+          {/* Payment method bars */}
           {payData.length > 0 && (
             <div className="px-4 mt-5">
               <div className="ios-section-header">By Payment Method</div>
@@ -1224,7 +1318,7 @@ function SettingsPage({ categories, setCategories, payments, setPayments, expens
           </div>
           <div className="ios-row">
             <span className="flex-1 text-[15px]">Version</span>
-            <span className="text-[15px]" style={{ color: 'var(--ios-secondary)' }}>2.1</span>
+            <span className="text-[15px]" style={{ color: 'var(--ios-secondary)' }}>2.2</span>
           </div>
         </div>
       </div>
