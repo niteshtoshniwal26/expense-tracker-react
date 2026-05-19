@@ -830,6 +830,45 @@ function EmptyState() {
   );
 }
 
+// ============== OPTION PICKER (custom dropdown bottom sheet) ==============
+function OptionPicker({ title, options, current, showDot, onPick, onClose }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center fade-enter"
+      style={{ background: 'rgba(0,0,0,0.4)' }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md bg-[#F2F2F7] rounded-t-2xl sheet-enter max-h-[60vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="sticky top-0 bg-[#F2F2F7]/95 backdrop-blur z-10 flex items-center justify-between px-4 py-3 border-b border-black/5">
+          <button onClick={onClose} className="text-[15px]" style={{ color: 'var(--ios-blue)' }}>Cancel</button>
+          <div className="text-[15px] font-semibold">{title}</div>
+          <div className="w-12"></div>
+        </div>
+        <div className="p-4">
+          <div className="ios-group">
+            {options.map(opt => (
+              <div
+                key={opt}
+                className="ios-row cursor-pointer"
+                onClick={() => { onPick(opt); onClose(); }}
+              >
+                {showDot && (
+                  <div className="cat-dot-lg mr-3" style={{ background: catColor(opt) }}></div>
+                )}
+                <span className="flex-1 text-[15px]">{opt}</span>
+                {current === opt && <span style={{ color: 'var(--ios-blue)' }} className="text-lg">✓</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ============== EXPENSE SHEET (Add/Edit) ==============
 function ExpenseSheet({ data, categories, payments, onSave, onClose }) {
   const [form, setForm] = React.useState({
@@ -839,6 +878,8 @@ function ExpenseSheet({ data, categories, payments, onSave, onClose }) {
     category: data?.category || categories[0] || "",
     payment: data?.payment || payments[0] || ""
   });
+  const [showCatPicker, setShowCatPicker] = React.useState(false);
+  const [showPayPicker, setShowPayPicker] = React.useState(false);
   const detailsRef = React.useRef(null);
   const isEdit = !!data;
 
@@ -851,12 +892,10 @@ function ExpenseSheet({ data, categories, payments, onSave, onClose }) {
   const handleSave = () => onSave(form);
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center fade-enter" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={onClose}>
-      <div
-        className="w-full max-w-md bg-[#F2F2F7] rounded-t-2xl sheet-enter max-h-[92vh] overflow-y-auto"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="sticky top-0 bg-[#F2F2F7]/95 backdrop-blur z-10 flex items-center justify-between px-4 py-3 border-b border-black/5">
+    <div className="fixed inset-0 z-40 fade-enter" style={{ background: 'var(--ios-bg)' }}>
+      <div className="flex flex-col h-full max-w-md mx-auto">
+        {/* Header — pinned to top */}
+        <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-black/5" style={{ background: 'var(--ios-bg)' }}>
           <button onClick={onClose} className="text-[17px]" style={{ color: 'var(--ios-blue)' }}>Cancel</button>
           <div className="text-[17px] font-semibold">{isEdit ? "Edit Expense" : "New Expense"}</div>
           <button onClick={handleSave} className="text-[17px] font-semibold" style={{ color: 'var(--ios-blue)' }}>
@@ -864,69 +903,86 @@ function ExpenseSheet({ data, categories, payments, onSave, onClose }) {
           </button>
         </div>
 
-        <div className="p-4">
-          <div className="text-center my-6">
-            <div className="text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--ios-secondary)' }}>Amount</div>
-            <div className="flex items-center justify-center gap-1">
-              <span className="text-4xl font-light" style={{ color: 'var(--ios-secondary)' }}>₹</span>
-              <input
-                type="number"
-                inputMode="decimal"
-                placeholder="0"
-                className="bg-transparent outline-none text-5xl font-light text-center tnum w-48"
-                value={form.amount}
-                onChange={e => setForm({ ...form, amount: e.target.value })}
-              />
+        {/* Scrollable body — fills remaining space */}
+        <div className="flex-1 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <div className="p-4 pb-80">
+            <div className="text-center my-6">
+              <div className="text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--ios-secondary)' }}>Amount</div>
+              <div className="flex items-center justify-center gap-1">
+                <span className="text-4xl font-light" style={{ color: 'var(--ios-secondary)' }}>₹</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="0"
+                  className="bg-transparent outline-none text-5xl font-light text-center tnum w-48"
+                  value={form.amount}
+                  onChange={e => setForm({ ...form, amount: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="ios-group">
+              <div className="ios-row">
+                <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>Date</span>
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={e => setForm({ ...form, date: e.target.value })}
+                  className="ios-input text-right"
+                  max={todayISO()}
+                />
+              </div>
+              <div className="ios-row">
+                <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>Description</span>
+                <input
+                  ref={detailsRef}
+                  placeholder="What was it for?"
+                  value={form.details}
+                  onChange={e => setForm({ ...form, details: e.target.value })}
+                  className="ios-input text-right"
+                  maxLength={100}
+                />
+              </div>
+              <div className="ios-row cursor-pointer" onClick={() => setShowCatPicker(true)}>
+                <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>Category</span>
+                <div className="flex-1 flex items-center justify-end gap-2">
+                  <div className="cat-dot-lg" style={{ background: catColor(form.category) }}></div>
+                  <span className="text-[15px]">{form.category}</span>
+                  <span style={{ color: 'var(--ios-tertiary)' }} className="text-sm">›</span>
+                </div>
+              </div>
+              <div className="ios-row cursor-pointer" onClick={() => setShowPayPicker(true)}>
+                <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>Payment</span>
+                <div className="flex-1 flex items-center justify-end gap-2">
+                  <span className="text-[15px]">{form.payment}</span>
+                  <span style={{ color: 'var(--ios-tertiary)' }} className="text-sm">›</span>
+                </div>
+              </div>
             </div>
           </div>
-
-          <div className="ios-group">
-            <div className="ios-row">
-              <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>Date</span>
-              <input
-                type="date"
-                value={form.date}
-                onChange={e => setForm({ ...form, date: e.target.value })}
-                className="ios-input text-right"
-                max={todayISO()}
-              />
-            </div>
-            <div className="ios-row">
-              <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>Description</span>
-              <input
-                ref={detailsRef}
-                placeholder="What was it for?"
-                value={form.details}
-                onChange={e => setForm({ ...form, details: e.target.value })}
-                className="ios-input text-right"
-                maxLength={100}
-              />
-            </div>
-            <div className="ios-row">
-              <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>Category</span>
-              <select
-                className="ios-select flex-1"
-                value={form.category}
-                onChange={e => setForm({ ...form, category: e.target.value })}
-              >
-                {categories.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div className="ios-row">
-              <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>Payment</span>
-              <select
-                className="ios-select flex-1"
-                value={form.payment}
-                onChange={e => setForm({ ...form, payment: e.target.value })}
-              >
-                {payments.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div className="h-8" />
         </div>
       </div>
+
+      {showCatPicker && (
+        <OptionPicker
+          title="Select Category"
+          options={categories}
+          current={form.category}
+          showDot={true}
+          onPick={(v) => setForm({ ...form, category: v })}
+          onClose={() => setShowCatPicker(false)}
+        />
+      )}
+      {showPayPicker && (
+        <OptionPicker
+          title="Select Payment"
+          options={payments}
+          current={form.payment}
+          showDot={false}
+          onPick={(v) => setForm({ ...form, payment: v })}
+          onClose={() => setShowPayPicker(false)}
+        />
+      )}
     </div>
   );
 }
