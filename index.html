@@ -575,13 +575,15 @@ function App() {
         />
       )}
 
-      <button
-        onClick={() => setAdding(true)}
-        className="fixed bottom-24 right-5 w-14 h-14 rounded-full text-white text-3xl flex items-center justify-center shadow-lg active:scale-95 transition-transform z-30"
-        style={{ background: 'var(--ios-blue)', boxShadow: '0 4px 16px rgba(0,122,255,0.4)' }}
-      >
-        +
-      </button>
+      {!(adding || editing) && (
+        <button
+          onClick={() => setAdding(true)}
+          className="fixed bottom-24 right-5 w-14 h-14 rounded-full text-white text-3xl flex items-center justify-center shadow-lg active:scale-95 transition-transform z-30"
+          style={{ background: 'var(--ios-blue)', boxShadow: '0 4px 16px rgba(0,122,255,0.4)' }}
+        >
+          +
+        </button>
+      )}
 
       {(adding || editing) && (
         <ExpenseSheet
@@ -593,11 +595,13 @@ function App() {
         />
       )}
 
-      <div className="ios-tabbar fixed bottom-0 left-0 right-0 flex">
-        <TabButton icon="📋" label="Expenses" active={page === "home"} onClick={() => setPage("home")} />
-        <TabButton icon="📊" label="Summary" active={page === "summary"} onClick={() => setPage("summary")} />
-        <TabButton icon="⚙️" label="Settings" active={page === "settings"} onClick={() => setPage("settings")} />
-      </div>
+      {!(adding || editing) && (
+        <div className="ios-tabbar fixed bottom-0 left-0 right-0 flex">
+          <TabButton icon="📋" label="Expenses" active={page === "home"} onClick={() => setPage("home")} />
+          <TabButton icon="📊" label="Summary" active={page === "summary"} onClick={() => setPage("summary")} />
+          <TabButton icon="⚙️" label="Settings" active={page === "settings"} onClick={() => setPage("settings")} />
+        </div>
+      )}
 
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-black/80 text-white text-sm px-4 py-2 rounded-full fade-enter">
