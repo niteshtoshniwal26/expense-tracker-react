@@ -11,6 +11,7 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
 
 <style>
   :root {
@@ -41,10 +42,8 @@
     overscroll-behavior-y: contain;
   }
 
-  /* Tabular numbers for amounts */
   .tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
 
-  /* iOS-style grouped list */
   .ios-group {
     background: var(--ios-card);
     border-radius: 12px;
@@ -85,14 +84,12 @@
     line-height: 1.3;
   }
 
-  /* Large title like iOS Settings */
   .ios-large-title {
     font-size: 34px;
     font-weight: 700;
     letter-spacing: -0.4px;
   }
 
-  /* Inputs */
   .ios-input {
     background: transparent;
     border: none;
@@ -103,7 +100,6 @@
   }
   .ios-input::placeholder { color: var(--ios-tertiary); }
 
-  /* Bottom tab bar (translucent) */
   .ios-tabbar {
     background: rgba(249, 249, 249, 0.94);
     backdrop-filter: saturate(180%) blur(20px);
@@ -111,7 +107,6 @@
     border-top: 0.5px solid var(--ios-separator);
   }
 
-  /* Modal sheet animation */
   @keyframes slideUp {
     from { transform: translateY(100%); }
     to { transform: translateY(0); }
@@ -124,7 +119,6 @@
   }
   .fade-enter { animation: fadeIn 0.2s ease-out; }
 
-  /* Segmented control */
   .seg-control {
     background: rgba(120, 120, 128, 0.12);
     border-radius: 9px;
@@ -147,29 +141,42 @@
     box-shadow: 0 3px 8px rgba(0,0,0,0.04), 0 3px 1px rgba(0,0,0,0.04);
   }
 
-  /* Category dot */
   .cat-dot {
-    width: 32px; height: 32px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    color: white;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .cat-dot-lg {
+    width: 12px; height: 12px;
+    border-radius: 50%;
     flex-shrink: 0;
   }
 
-  /* Hide scrollbar on horizontal scroll */
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { scrollbar-width: none; }
 
-  /* Hide number input spinners */
   input[type="number"]::-webkit-outer-spin-button,
   input[type="number"]::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
   }
   input[type="number"] { -moz-appearance: textfield; }
+
+  /* Native-looking select */
+  .ios-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 17px;
+    color: var(--ios-label);
+    text-align: right;
+    padding-right: 18px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23999' d='M5 6L0 0h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right center;
+  }
 </style>
 
 </head>
@@ -179,57 +186,56 @@
 
 <script type="text/babel">
 
+const { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } = Recharts;
+
 // ============== UTILITIES ==============
 
-// Indian number formatting: 1,23,456
 const formatINR = (n) => {
   const num = Number(n) || 0;
   return num.toLocaleString('en-IN', { maximumFractionDigits: 2 });
 };
 
+const formatINRCompact = (n) => {
+  const num = Number(n) || 0;
+  if (num >= 10000000) return `₹${(num/10000000).toFixed(1)}Cr`;
+  if (num >= 100000) return `₹${(num/100000).toFixed(1)}L`;
+  if (num >= 1000) return `₹${(num/1000).toFixed(1)}k`;
+  return `₹${num}`;
+};
+
 const todayISO = () => new Date().toISOString().split('T')[0];
-
 const monthKey = (dateStr) => dateStr ? dateStr.substring(0, 7) : '';
-
 const monthLabel = (key) => {
   if (!key) return '';
   const [y, m] = key.split('-');
   const d = new Date(Number(y), Number(m) - 1, 1);
   return d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 };
-
-const formatDateShort = (dateStr) => {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+const monthLabelShort = (key) => {
+  if (!key) return '';
+  const [y, m] = key.split('-');
+  const d = new Date(Number(y), Number(m) - 1, 1);
+  return d.toLocaleDateString('en-IN', { month: 'short' });
 };
 
-// Category palette — assigned by name hash for stability
-const CAT_COLORS = [
-  { bg: '#FF9500', icon: '⛽' }, // orange
-  { bg: '#FF3B30', icon: '🍔' }, // red
-  { bg: '#34C759', icon: '🛒' }, // green
-  { bg: '#5AC8FA', icon: '💡' }, // teal
-  { bg: '#AF52DE', icon: '🎬' }, // purple
-  { bg: '#FF2D55', icon: '🎁' }, // pink
-  { bg: '#5856D6', icon: '🏥' }, // indigo
-  { bg: '#FFCC00', icon: '📦' }, // yellow
+// Stable color per category name
+const PALETTE = [
+  '#007AFF', '#FF9500', '#34C759', '#FF3B30', '#AF52DE',
+  '#FF2D55', '#5856D6', '#5AC8FA', '#FFCC00', '#30D158',
+  '#BF5AF2', '#FF6482'
 ];
-
-const catStyle = (name) => {
+const catColor = (name) => {
   let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffffffff;
-  return CAT_COLORS[Math.abs(h) % CAT_COLORS.length];
+  for (let i = 0; i < (name || '').length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffffffff;
+  return PALETTE[Math.abs(h) % PALETTE.length];
 };
 
-// CSV escaping
 const csvCell = (v) => {
   const s = String(v ?? '');
   if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 };
 
-// ============== STORAGE ==============
 const load = (key, fallback) => {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
   catch { return fallback; }
@@ -246,9 +252,9 @@ function App() {
   const [payments, setPayments] = React.useState(() =>
     load("payments", ["ICICI", "SBI", "Coral CC", "Emerald CC"])
   );
-  const [editing, setEditing] = React.useState(null); // {index, data} or null
+  const [editing, setEditing] = React.useState(null);
   const [adding, setAdding] = React.useState(false);
-  const [monthFilter, setMonthFilter] = React.useState("current"); // current | all | YYYY-MM
+  const [monthFilter, setMonthFilter] = React.useState("current");
   const [toast, setToast] = React.useState(null);
 
   const showToast = (msg) => {
@@ -256,30 +262,48 @@ function App() {
     setTimeout(() => setToast(null), 2000);
   };
 
-  // Persist
   React.useEffect(() => save("expenses", expenses), [expenses]);
   React.useEffect(() => save("categories", categories), [categories]);
   React.useEffect(() => save("payments", payments), [payments]);
 
-  // CRUD
   const addExpense = (data) => {
+    if (!data.details || !data.details.trim()) {
+      showToast("Description is required");
+      return false;
+    }
     if (!data.amount || Number(data.amount) <= 0) {
       showToast("Enter a valid amount");
       return false;
     }
-    setExpenses([...expenses, { ...data, id: Date.now() + Math.random() }]);
+    const now = new Date().toISOString();
+    setExpenses([...expenses, {
+      ...data,
+      details: data.details.trim(),
+      id: Date.now() + Math.random(),
+      createdAt: now,
+      updatedAt: now
+    }]);
     setAdding(false);
     showToast("Expense added");
     return true;
   };
 
   const updateExpense = (data) => {
+    if (!data.details || !data.details.trim()) {
+      showToast("Description is required");
+      return false;
+    }
     if (!data.amount || Number(data.amount) <= 0) {
       showToast("Enter a valid amount");
       return false;
     }
     const arr = [...expenses];
-    arr[editing.index] = { ...arr[editing.index], ...data };
+    arr[editing.index] = {
+      ...arr[editing.index],
+      ...data,
+      details: data.details.trim(),
+      updatedAt: new Date().toISOString()
+    };
     setExpenses(arr);
     setEditing(null);
     showToast("Updated");
@@ -294,7 +318,6 @@ function App() {
     showToast("Deleted");
   };
 
-  // Backup / Restore
   const exportJSON = () => {
     const data = { expenses, categories, payments, exportedAt: new Date().toISOString(), version: 2 };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -311,13 +334,13 @@ function App() {
     reader.onload = (e) => {
       try {
         const data = JSON.parse(e.target.result);
-        if (!data.expenses || !Array.isArray(data.expenses)) throw new Error("Invalid file");
+        if (!data.expenses || !Array.isArray(data.expenses)) throw new Error("Invalid");
         if (!confirm(`Restore ${data.expenses.length} expenses? This will replace all current data.`)) return;
         setExpenses(data.expenses);
         if (Array.isArray(data.categories)) setCategories(data.categories);
         if (Array.isArray(data.payments)) setPayments(data.payments);
         showToast("Restored");
-      } catch (err) {
+      } catch {
         alert("Couldn't read backup file. Make sure it's a valid expense backup.");
       }
     };
@@ -325,11 +348,30 @@ function App() {
   };
 
   const exportCSV = () => {
-    const header = "Date,Details,Category,Payment,Amount\n";
-    const rows = expenses.map(e =>
-      [e.date, e.details, e.category, e.payment, e.amount].map(csvCell).join(',')
-    ).join('\n');
-    const blob = new Blob([header + rows], { type: 'text/csv' });
+    // Detailed CSV with all metadata
+    const headers = [
+      "ID", "Date", "Description", "Category", "Payment Method", "Amount (INR)",
+      "Day of Week", "Month", "Year", "Created Timestamp", "Last Updated"
+    ];
+    const rows = expenses.map(e => {
+      const d = e.date ? new Date(e.date) : null;
+      return [
+        e.id || '',
+        e.date || '',
+        e.details || '',
+        e.category || '',
+        e.payment || '',
+        e.amount || 0,
+        d ? d.toLocaleDateString('en-IN', { weekday: 'long' }) : '',
+        d ? d.toLocaleDateString('en-IN', { month: 'long' }) : '',
+        d ? d.getFullYear() : '',
+        e.createdAt || '',
+        e.updatedAt || ''
+      ].map(csvCell).join(',');
+    }).join('\n');
+
+    const csv = headers.join(',') + '\n' + rows;
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `expenses-${todayISO()}.csv`;
@@ -367,16 +409,14 @@ function App() {
         />
       )}
 
-      {/* FAB */}
       <button
         onClick={() => setAdding(true)}
-        className="fixed bottom-24 right-5 w-14 h-14 rounded-full text-white text-3xl flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+        className="fixed bottom-24 right-5 w-14 h-14 rounded-full text-white text-3xl flex items-center justify-center shadow-lg active:scale-95 transition-transform z-30"
         style={{ background: 'var(--ios-blue)', boxShadow: '0 4px 16px rgba(0,122,255,0.4)' }}
       >
         +
       </button>
 
-      {/* Add / Edit Sheet */}
       {(adding || editing) && (
         <ExpenseSheet
           data={editing?.data}
@@ -387,14 +427,12 @@ function App() {
         />
       )}
 
-      {/* Tab bar */}
-      <div className="ios-tabbar fixed bottom-0 left-0 right-0 flex pb-safe">
+      <div className="ios-tabbar fixed bottom-0 left-0 right-0 flex">
         <TabButton icon="📋" label="Expenses" active={page === "home"} onClick={() => setPage("home")} />
         <TabButton icon="📊" label="Summary" active={page === "summary"} onClick={() => setPage("summary")} />
         <TabButton icon="⚙️" label="Settings" active={page === "settings"} onClick={() => setPage("settings")} />
       </div>
 
-      {/* Toast */}
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-black/80 text-white text-sm px-4 py-2 rounded-full fade-enter">
           {toast}
@@ -404,7 +442,6 @@ function App() {
   );
 }
 
-// ============== TAB BUTTON ==============
 function TabButton({ icon, label, active, onClick }) {
   return (
     <button
@@ -418,14 +455,47 @@ function TabButton({ icon, label, active, onClick }) {
   );
 }
 
+// ============== MONTH PICKER MODAL ==============
+function MonthPickerModal({ months, current, onPick, onClose }) {
+  return (
+    <div className="fixed inset-0 z-40 flex items-end justify-center fade-enter" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={onClose}>
+      <div
+        className="w-full max-w-md bg-[#F2F2F7] rounded-t-2xl sheet-enter max-h-[70vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="sticky top-0 bg-[#F2F2F7]/95 backdrop-blur z-10 flex items-center justify-between px-4 py-3 border-b border-black/5">
+          <button onClick={onClose} className="text-[17px]" style={{ color: 'var(--ios-blue)' }}>Cancel</button>
+          <div className="text-[17px] font-semibold">Select Month</div>
+          <div className="w-12"></div>
+        </div>
+        <div className="p-4">
+          <div className="ios-group">
+            {months.length === 0 ? (
+              <div className="ios-row text-[15px]" style={{ color: 'var(--ios-secondary)' }}>
+                No other months with data
+              </div>
+            ) : months.map(m => (
+              <div
+                key={m}
+                className="ios-row cursor-pointer"
+                onClick={() => { onPick(m); onClose(); }}
+              >
+                <span className="flex-1 text-[15px]">{monthLabel(m)}</span>
+                {current === m && <span style={{ color: 'var(--ios-blue)' }} className="text-lg">✓</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ============== HOME PAGE ==============
 function HomePage({ expenses, monthFilter, setMonthFilter, onEdit, onDelete, onAdd }) {
   const [search, setSearch] = React.useState("");
-  const [filterCat, setFilterCat] = React.useState("");
-  const [filterPay, setFilterPay] = React.useState("");
-  const [showFilters, setShowFilters] = React.useState(false);
+  const [showPicker, setShowPicker] = React.useState(false);
 
-  // Apply month filter
   const currentMonth = monthKey(todayISO());
   const monthFiltered = expenses.filter(e => {
     if (monthFilter === "all") return true;
@@ -433,25 +503,20 @@ function HomePage({ expenses, monthFilter, setMonthFilter, onEdit, onDelete, onA
     return monthKey(e.date) === monthFilter;
   });
 
-  // Apply search + structured filters
   const filtered = monthFiltered.filter(e => {
-    if (filterCat && e.category !== filterCat) return false;
-    if (filterPay && e.payment !== filterPay) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      return (e.details || '').toLowerCase().includes(q) ||
-             String(e.amount).includes(q);
-    }
-    return true;
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (e.details || '').toLowerCase().includes(q) ||
+           (e.category || '').toLowerCase().includes(q) ||
+           (e.payment || '').toLowerCase().includes(q) ||
+           String(e.amount).includes(q);
   });
 
-  // Sort newest first, then by id
   const sorted = [...filtered].sort((a, b) => {
     if (a.date !== b.date) return a.date < b.date ? 1 : -1;
     return (b.id || 0) - (a.id || 0);
   });
 
-  // Group by date
   const groups = {};
   sorted.forEach(e => {
     const idx = expenses.indexOf(e);
@@ -460,16 +525,17 @@ function HomePage({ expenses, monthFilter, setMonthFilter, onEdit, onDelete, onA
   });
 
   const total = filtered.reduce((s, e) => s + Number(e.amount || 0), 0);
-
-  // Unique months for filter
   const allMonths = [...new Set(expenses.map(e => monthKey(e.date)))].sort().reverse();
+
+  const periodLabel = monthFilter === "current" ? monthLabel(currentMonth) :
+                       monthFilter === "all" ? "All time" :
+                       monthLabel(monthFilter);
 
   return (
     <div>
-      {/* Large title */}
       <div className="px-4 pt-12 pb-2">
         <div className="text-xs uppercase tracking-wide" style={{ color: 'var(--ios-secondary)' }}>
-          {monthFilter === "current" ? monthLabel(currentMonth) : monthFilter === "all" ? "All time" : monthLabel(monthFilter)}
+          {periodLabel}
         </div>
         <h1 className="ios-large-title tnum">₹{formatINR(total)}</h1>
         <div className="text-sm mt-1" style={{ color: 'var(--ios-secondary)' }}>
@@ -477,7 +543,6 @@ function HomePage({ expenses, monthFilter, setMonthFilter, onEdit, onDelete, onA
         </div>
       </div>
 
-      {/* Month segmented control */}
       <div className="px-4 mt-3">
         <div className="seg-control">
           <button className={`seg-option ${monthFilter === "current" ? "active" : ""}`} onClick={() => setMonthFilter("current")}>
@@ -488,48 +553,37 @@ function HomePage({ expenses, monthFilter, setMonthFilter, onEdit, onDelete, onA
           </button>
           <button
             className={`seg-option ${monthFilter !== "current" && monthFilter !== "all" ? "active" : ""}`}
-            onClick={() => {
-              const opts = allMonths.filter(m => m !== currentMonth);
-              if (opts.length === 0) return;
-              const next = opts[0];
-              setMonthFilter(next);
-            }}
+            onClick={() => setShowPicker(true)}
           >
-            {monthFilter !== "current" && monthFilter !== "all" ? monthLabel(monthFilter).split(' ')[0] : "Pick"}
+            {monthFilter !== "current" && monthFilter !== "all"
+              ? monthLabelShort(monthFilter)
+              : "Pick"}
           </button>
         </div>
       </div>
 
-      {/* Search */}
       <div className="px-4 mt-3">
         <div className="flex items-center gap-2 bg-black/[0.06] rounded-xl px-3 py-2">
           <span className="text-base" style={{ color: 'var(--ios-secondary)' }}>🔍</span>
           <input
-            placeholder="Search details or amount"
+            placeholder="Search"
             className="ios-input text-[15px]"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
-          {(search || filterCat || filterPay) && (
+          {search && (
             <button
-              onClick={() => { setSearch(""); setFilterCat(""); setFilterPay(""); }}
+              onClick={() => setSearch("")}
               className="text-sm"
               style={{ color: 'var(--ios-blue)' }}
             >Clear</button>
           )}
         </div>
-        {(filterCat || filterPay) && (
-          <div className="flex gap-2 mt-2 text-xs">
-            {filterCat && <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700">{filterCat} ×</span>}
-            {filterPay && <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-700">{filterPay} ×</span>}
-          </div>
-        )}
       </div>
 
-      {/* List */}
       <div className="mt-4 px-4">
         {Object.keys(groups).length === 0 ? (
-          <EmptyState onAdd={onAdd} />
+          <EmptyState />
         ) : (
           Object.entries(groups).map(([date, items]) => (
             <div key={date} className="mb-4">
@@ -548,6 +602,15 @@ function HomePage({ expenses, monthFilter, setMonthFilter, onEdit, onDelete, onA
           ))
         )}
       </div>
+
+      {showPicker && (
+        <MonthPickerModal
+          months={allMonths}
+          current={monthFilter}
+          onPick={setMonthFilter}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
     </div>
   );
 }
@@ -563,12 +626,11 @@ const formatDateLong = (dateStr) => {
   return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
 };
 
-// ============== EXPENSE ROW ==============
 function ExpenseRow({ expense, onEdit, onDelete }) {
-  const cs = catStyle(expense.category || 'Other');
+  const color = catColor(expense.category || 'Other');
   return (
     <div className="ios-row" onClick={onEdit}>
-      <div className="cat-dot mr-3" style={{ background: cs.bg }}>{cs.icon}</div>
+      <div className="cat-dot-lg mr-3" style={{ background: color }}></div>
       <div className="flex-1 min-w-0">
         <div className="text-[15px] font-medium truncate">{expense.details || expense.category}</div>
         <div className="text-[13px]" style={{ color: 'var(--ios-secondary)' }}>
@@ -580,14 +642,13 @@ function ExpenseRow({ expense, onEdit, onDelete }) {
       </div>
       <button
         onClick={(ev) => { ev.stopPropagation(); onDelete(); }}
-        className="ml-2 text-lg opacity-40 active:opacity-100"
+        className="ml-3 text-lg opacity-40 active:opacity-100"
       >🗑</button>
     </div>
   );
 }
 
-// ============== EMPTY STATE ==============
-function EmptyState({ onAdd }) {
+function EmptyState() {
   return (
     <div className="text-center py-16">
       <div className="text-6xl mb-4 opacity-30">📋</div>
@@ -603,13 +664,20 @@ function EmptyState({ onAdd }) {
 function ExpenseSheet({ data, categories, payments, onSave, onClose }) {
   const [form, setForm] = React.useState({
     amount: data?.amount || "",
-    category: data?.category || categories[0] || "",
-    payment: data?.payment || payments[0] || "",
     date: data?.date || todayISO(),
-    details: data?.details || ""
+    details: data?.details || "",
+    category: data?.category || categories[0] || "",
+    payment: data?.payment || payments[0] || ""
   });
-
+  const detailsRef = React.useRef(null);
   const isEdit = !!data;
+
+  // Auto-focus description (the first mandatory field) on open
+  React.useEffect(() => {
+    if (!isEdit) {
+      setTimeout(() => detailsRef.current?.focus(), 300);
+    }
+  }, []);
 
   const handleSave = () => onSave(form);
 
@@ -619,7 +687,6 @@ function ExpenseSheet({ data, categories, payments, onSave, onClose }) {
         className="w-full max-w-md bg-[#F2F2F7] rounded-t-2xl sheet-enter max-h-[92vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="sticky top-0 bg-[#F2F2F7]/95 backdrop-blur z-10 flex items-center justify-between px-4 py-3 border-b border-black/5">
           <button onClick={onClose} className="text-[17px]" style={{ color: 'var(--ios-blue)' }}>Cancel</button>
           <div className="text-[17px] font-semibold">{isEdit ? "Edit Expense" : "New Expense"}</div>
@@ -629,7 +696,7 @@ function ExpenseSheet({ data, categories, payments, onSave, onClose }) {
         </div>
 
         <div className="p-4">
-          {/* Amount — big and central */}
+          {/* 1. Amount — focal point */}
           <div className="text-center my-6">
             <div className="text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--ios-secondary)' }}>Amount</div>
             <div className="flex items-center justify-center gap-1">
@@ -641,56 +708,14 @@ function ExpenseSheet({ data, categories, payments, onSave, onClose }) {
                 className="bg-transparent outline-none text-5xl font-light text-center tnum w-48"
                 value={form.amount}
                 onChange={e => setForm({ ...form, amount: e.target.value })}
-                autoFocus={!isEdit}
               />
             </div>
           </div>
 
-          {/* Category chips */}
-          <div className="ios-section-header">Category</div>
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-            {categories.map(c => {
-              const cs = catStyle(c);
-              const sel = form.category === c;
-              return (
-                <button
-                  key={c}
-                  onClick={() => setForm({ ...form, category: c })}
-                  className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl flex-shrink-0 transition-all"
-                  style={{
-                    background: sel ? 'var(--ios-card)' : 'transparent',
-                    boxShadow: sel ? '0 0 0 2px var(--ios-blue)' : 'none'
-                  }}
-                >
-                  <div className="cat-dot" style={{ background: cs.bg }}>{cs.icon}</div>
-                  <span className="text-[11px] font-medium">{c}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Payment */}
-          <div className="ios-section-header">Payment Method</div>
-          <div className="ios-group">
-            {payments.map((p, i) => (
-              <div
-                key={p}
-                className="ios-row cursor-pointer"
-                onClick={() => setForm({ ...form, payment: p })}
-              >
-                <div className="flex-1 text-[15px]">{p}</div>
-                {form.payment === p && (
-                  <span style={{ color: 'var(--ios-blue)' }} className="text-lg">✓</span>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Date + Details */}
-          <div className="ios-section-header">Details</div>
+          {/* 2. Date  +  3. Description (mandatory, auto-focused)  +  4. Category  +  5. Payment */}
           <div className="ios-group">
             <div className="ios-row">
-              <span className="w-20 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>Date</span>
+              <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>Date</span>
               <input
                 type="date"
                 value={form.date}
@@ -700,15 +725,42 @@ function ExpenseSheet({ data, categories, payments, onSave, onClose }) {
               />
             </div>
             <div className="ios-row">
-              <span className="w-20 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>Note</span>
+              <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>
+                Description<span style={{ color: 'var(--ios-red)' }}>*</span>
+              </span>
               <input
-                placeholder="Optional"
+                ref={detailsRef}
+                placeholder="Required"
                 value={form.details}
                 onChange={e => setForm({ ...form, details: e.target.value })}
                 className="ios-input text-right"
-                maxLength={80}
+                maxLength={100}
               />
             </div>
+            <div className="ios-row">
+              <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>Category</span>
+              <select
+                className="ios-select flex-1"
+                value={form.category}
+                onChange={e => setForm({ ...form, category: e.target.value })}
+              >
+                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="ios-row">
+              <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>Payment</span>
+              <select
+                className="ios-select flex-1"
+                value={form.payment}
+                onChange={e => setForm({ ...form, payment: e.target.value })}
+              >
+                {payments.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="ios-footer-text">
+            <span style={{ color: 'var(--ios-red)' }}>*</span> Required field
           </div>
 
           <div className="h-8" />
@@ -718,8 +770,10 @@ function ExpenseSheet({ data, categories, payments, onSave, onClose }) {
   );
 }
 
-// ============== SUMMARY PAGE ==============
+// ============== SUMMARY PAGE WITH CHARTS ==============
 function SummaryPage({ expenses, monthFilter, setMonthFilter }) {
+  const [showPicker, setShowPicker] = React.useState(false);
+
   const currentMonth = monthKey(todayISO());
   const allMonths = [...new Set(expenses.map(e => monthKey(e.date)))].sort().reverse();
 
@@ -739,10 +793,29 @@ function SummaryPage({ expenses, monthFilter, setMonthFilter }) {
     byPayment[e.payment] = (byPayment[e.payment] || 0) + Number(e.amount || 0);
   });
 
-  const catSorted = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
-  const paySorted = Object.entries(byPayment).sort((a, b) => b[1] - a[1]);
+  const catData = Object.entries(byCategory)
+    .map(([name, value]) => ({ name, value, color: catColor(name) }))
+    .sort((a, b) => b.value - a.value);
 
-  // Prev month comparison
+  const payData = Object.entries(byPayment)
+    .map(([name, value]) => ({ name, value, color: catColor(name) }))
+    .sort((a, b) => b.value - a.value);
+
+  // Last 6 months trend
+  const trendData = (() => {
+    const months = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const sum = expenses
+        .filter(e => monthKey(e.date) === key)
+        .reduce((s, e) => s + Number(e.amount || 0), 0);
+      months.push({ month: monthLabelShort(key), amount: sum, key });
+    }
+    return months;
+  })();
+
   const prevMonthKey = (() => {
     if (!activeMonth) return null;
     const [y, m] = activeMonth.split('-').map(Number);
@@ -768,13 +841,16 @@ function SummaryPage({ expenses, monthFilter, setMonthFilter }) {
           <button className={`seg-option ${monthFilter === "current" ? "active" : ""}`} onClick={() => setMonthFilter("current")}>
             This month
           </button>
-          {prevMonthKey && allMonths.includes(prevMonthKey) && (
-            <button className={`seg-option ${monthFilter === prevMonthKey ? "active" : ""}`} onClick={() => setMonthFilter(prevMonthKey)}>
-              Last month
-            </button>
-          )}
           <button className={`seg-option ${monthFilter === "all" ? "active" : ""}`} onClick={() => setMonthFilter("all")}>
             All
+          </button>
+          <button
+            className={`seg-option ${monthFilter !== "current" && monthFilter !== "all" ? "active" : ""}`}
+            onClick={() => setShowPicker(true)}
+          >
+            {monthFilter !== "current" && monthFilter !== "all"
+              ? monthLabelShort(monthFilter)
+              : "Pick"}
           </button>
         </div>
       </div>
@@ -792,62 +868,194 @@ function SummaryPage({ expenses, monthFilter, setMonthFilter }) {
         </div>
       </div>
 
-      {/* By category */}
-      {catSorted.length > 0 && (
-        <div className="px-4 mt-5">
-          <div className="ios-section-header">By Category</div>
-          <div className="ios-group">
-            {catSorted.map(([cat, amt]) => {
-              const cs = catStyle(cat);
-              const pct = total > 0 ? (amt / total) * 100 : 0;
-              return (
-                <div key={cat} className="ios-row">
-                  <div className="cat-dot mr-3" style={{ background: cs.bg }}>{cs.icon}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[15px] font-medium">{cat}</div>
-                    <div className="mt-1.5 h-1 bg-black/5 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: cs.bg }} />
-                    </div>
-                  </div>
-                  <div className="ml-3 text-right">
-                    <div className="text-[15px] font-semibold tnum">₹{formatINR(amt)}</div>
-                    <div className="text-[11px]" style={{ color: 'var(--ios-secondary)' }}>{pct.toFixed(0)}%</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* By payment */}
-      {paySorted.length > 0 && (
-        <div className="px-4 mt-5">
-          <div className="ios-section-header">By Payment Method</div>
-          <div className="ios-group">
-            {paySorted.map(([pay, amt]) => {
-              const pct = total > 0 ? (amt / total) * 100 : 0;
-              return (
-                <div key={pay} className="ios-row">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[15px] font-medium">{pay}</div>
-                    <div className="text-[11px] mt-0.5" style={{ color: 'var(--ios-secondary)' }}>{pct.toFixed(0)}% of total</div>
-                  </div>
-                  <div className="text-[15px] font-semibold tnum">₹{formatINR(amt)}</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {filtered.length === 0 && (
+      {filtered.length === 0 ? (
         <div className="px-4 mt-10 text-center" style={{ color: 'var(--ios-secondary)' }}>
           No expenses in this period
         </div>
+      ) : (
+        <>
+          {/* Category donut chart */}
+          {catData.length > 0 && (
+            <div className="px-4 mt-5">
+              <div className="ios-section-header">Spending by Category</div>
+              <div className="ios-group p-4">
+                <div style={{ width: '100%', height: 220 }}>
+                  <ResponsiveContainer>
+                    <PieChart>
+                      <Pie
+                        data={catData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={90}
+                        paddingAngle={2}
+                        dataKey="value"
+                      >
+                        {catData.map((entry, i) => (
+                          <Cell key={i} fill={entry.color} stroke="none" />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(v) => `₹${formatINR(v)}`}
+                        contentStyle={{
+                          background: 'rgba(0,0,0,0.85)',
+                          border: 'none',
+                          borderRadius: 8,
+                          color: 'white',
+                          fontSize: 13
+                        }}
+                        itemStyle={{ color: 'white' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                {/* Custom legend with amounts */}
+                <div className="mt-3 space-y-2">
+                  {catData.map(d => {
+                    const pct = total > 0 ? (d.value / total) * 100 : 0;
+                    return (
+                      <div key={d.name} className="flex items-center">
+                        <div className="cat-dot mr-3" style={{ background: d.color }}></div>
+                        <div className="flex-1 text-[14px]">{d.name}</div>
+                        <div className="text-[14px] font-semibold tnum mr-2">₹{formatINR(d.value)}</div>
+                        <div className="text-[12px] w-10 text-right" style={{ color: 'var(--ios-secondary)' }}>
+                          {pct.toFixed(0)}%
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 6-month trend bar chart */}
+          <div className="px-4 mt-5">
+            <div className="ios-section-header">Last 6 Months</div>
+            <div className="ios-group p-4">
+              <div style={{ width: '100%', height: 200 }}>
+                <ResponsiveContainer>
+                  <BarChart data={trendData} margin={{ top: 10, right: 5, left: -10, bottom: 0 }}>
+                    <XAxis
+                      dataKey="month"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: 'rgba(60,60,67,0.6)' }}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 10, fill: 'rgba(60,60,67,0.6)' }}
+                      tickFormatter={(v) => formatINRCompact(v)}
+                      width={50}
+                    />
+                    <Tooltip
+                      formatter={(v) => `₹${formatINR(v)}`}
+                      cursor={{ fill: 'rgba(0,122,255,0.05)' }}
+                      contentStyle={{
+                        background: 'rgba(0,0,0,0.85)',
+                        border: 'none',
+                        borderRadius: 8,
+                        color: 'white',
+                        fontSize: 13
+                      }}
+                      itemStyle={{ color: 'white' }}
+                      labelStyle={{ color: 'rgba(255,255,255,0.7)' }}
+                    />
+                    <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
+                      {trendData.map((entry, i) => (
+                        <Cell
+                          key={i}
+                          fill={entry.key === activeMonth ? 'var(--ios-blue)' : 'rgba(0,122,255,0.35)'}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          {/* Payment method horizontal bars */}
+          {payData.length > 0 && (
+            <div className="px-4 mt-5">
+              <div className="ios-section-header">By Payment Method</div>
+              <div className="ios-group p-4">
+                {payData.map((d) => {
+                  const pct = total > 0 ? (d.value / total) * 100 : 0;
+                  const maxValue = payData[0].value;
+                  const barWidth = maxValue > 0 ? (d.value / maxValue) * 100 : 0;
+                  return (
+                    <div key={d.name} className="mb-3 last:mb-0">
+                      <div className="flex justify-between items-baseline mb-1">
+                        <span className="text-[14px] font-medium">{d.name}</span>
+                        <span className="text-[14px] font-semibold tnum">₹{formatINR(d.value)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 bg-black/[0.06] rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{ width: `${barWidth}%`, background: d.color }}
+                          />
+                        </div>
+                        <span className="text-[11px] w-9 text-right" style={{ color: 'var(--ios-secondary)' }}>
+                          {pct.toFixed(0)}%
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Quick stats */}
+          <div className="px-4 mt-5">
+            <div className="ios-section-header">Quick Stats</div>
+            <div className="ios-group">
+              <div className="ios-row">
+                <span className="flex-1 text-[15px]">Average per expense</span>
+                <span className="text-[15px] font-semibold tnum">
+                  ₹{formatINR(filtered.length > 0 ? total / filtered.length : 0)}
+                </span>
+              </div>
+              <div className="ios-row">
+                <span className="flex-1 text-[15px]">Highest expense</span>
+                <span className="text-[15px] font-semibold tnum">
+                  ₹{formatINR(Math.max(...filtered.map(e => Number(e.amount || 0))))}
+                </span>
+              </div>
+              <div className="ios-row">
+                <span className="flex-1 text-[15px]">Number of expenses</span>
+                <span className="text-[15px] font-semibold tnum">{filtered.length}</span>
+              </div>
+              {activeMonth && (
+                <div className="ios-row">
+                  <span className="flex-1 text-[15px]">Daily average</span>
+                  <span className="text-[15px] font-semibold tnum">
+                    ₹{formatINR(total / new Date(
+                      Number(activeMonth.split('-')[0]),
+                      Number(activeMonth.split('-')[1]),
+                      0
+                    ).getDate())}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
       )}
 
       <div className="h-20" />
+
+      {showPicker && (
+        <MonthPickerModal
+          months={allMonths}
+          current={monthFilter}
+          onPick={setMonthFilter}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
     </div>
   );
 }
@@ -873,7 +1081,6 @@ function SettingsPage({ categories, setCategories, payments, setPayments, expens
     const arr = [...categories];
     arr[i] = trimmed;
     setCategories(arr);
-    // Note: existing expenses still reference old name — kept intentional, see footer
   };
 
   const deleteCategory = (i) => {
@@ -919,16 +1126,15 @@ function SettingsPage({ categories, setCategories, payments, setPayments, expens
         <h1 className="ios-large-title">Settings</h1>
       </div>
 
-      {/* Categories */}
       <div className="px-4 mt-4">
         <div className="ios-section-header">Categories</div>
         <div className="ios-group">
           {categories.map((c, i) => {
-            const cs = catStyle(c);
+            const color = catColor(c);
             const inUse = expenses.filter(e => e.category === c).length;
             return (
               <div key={i} className="ios-row">
-                <div className="cat-dot mr-3" style={{ background: cs.bg }}>{cs.icon}</div>
+                <div className="cat-dot-lg mr-3" style={{ background: color }}></div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[15px]">{c}</div>
                   {inUse > 0 && (
@@ -943,13 +1149,12 @@ function SettingsPage({ categories, setCategories, payments, setPayments, expens
             );
           })}
           <div className="ios-row cursor-pointer" onClick={addCategory}>
-            <div className="cat-dot mr-3" style={{ background: 'var(--ios-blue)' }}>+</div>
+            <div className="cat-dot-lg mr-3" style={{ background: 'var(--ios-blue)' }}></div>
             <div className="flex-1 text-[15px]" style={{ color: 'var(--ios-blue)' }}>Add category</div>
           </div>
         </div>
       </div>
 
-      {/* Payment methods */}
       <div className="px-4 mt-5">
         <div className="ios-section-header">Payment Methods</div>
         <div className="ios-group">
@@ -971,13 +1176,12 @@ function SettingsPage({ categories, setCategories, payments, setPayments, expens
             );
           })}
           <div className="ios-row cursor-pointer" onClick={addPayment}>
-            <div className="cat-dot mr-3" style={{ background: 'var(--ios-blue)' }}>+</div>
+            <div className="cat-dot-lg mr-3" style={{ background: 'var(--ios-blue)' }}></div>
             <div className="flex-1 text-[15px]" style={{ color: 'var(--ios-blue)' }}>Add payment method</div>
           </div>
         </div>
       </div>
 
-      {/* Data */}
       <div className="px-4 mt-5">
         <div className="ios-section-header">Data</div>
         <div className="ios-group">
@@ -1007,11 +1211,10 @@ function SettingsPage({ categories, setCategories, payments, setPayments, expens
           </div>
         </div>
         <div className="ios-footer-text">
-          Backup creates a JSON file with all expenses, categories, and payment methods. Save it somewhere safe — your browser may clear local data without warning.
+          CSV includes ID, date, description, category, payment, amount, day of week, month, year, and timestamps.
         </div>
       </div>
 
-      {/* About */}
       <div className="px-4 mt-5">
         <div className="ios-section-header">About</div>
         <div className="ios-group">
@@ -1021,7 +1224,7 @@ function SettingsPage({ categories, setCategories, payments, setPayments, expens
           </div>
           <div className="ios-row">
             <span className="flex-1 text-[15px]">Version</span>
-            <span className="text-[15px]" style={{ color: 'var(--ios-secondary)' }}>2.0</span>
+            <span className="text-[15px]" style={{ color: 'var(--ios-secondary)' }}>2.1</span>
           </div>
         </div>
       </div>
