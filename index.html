@@ -1,320 +1,1767 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Expense Tracker</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#F2F2F7">
+<title>Expenses</title>
 
 <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 
+<style>
+  :root {
+    --ios-bg: #F2F2F7;
+    --ios-card: #FFFFFF;
+    --ios-separator: rgba(60, 60, 67, 0.12);
+    --ios-label: #000000;
+    --ios-secondary: rgba(60, 60, 67, 0.6);
+    --ios-tertiary: rgba(60, 60, 67, 0.3);
+    --ios-blue: #007AFF;
+    --ios-green: #34C759;
+    --ios-red: #FF3B30;
+    --ios-orange: #FF9500;
+    --ios-yellow: #FFCC00;
+    --ios-purple: #AF52DE;
+    --ios-pink: #FF2D55;
+    --ios-indigo: #5856D6;
+    --ios-teal: #5AC8FA;
+  }
+
+  * { -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+    background: var(--ios-bg);
+    color: var(--ios-label);
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: contain;
+  }
+
+  .tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+  .ios-group {
+    background: var(--ios-card);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .ios-row {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    min-height: 44px;
+    background: var(--ios-card);
+    position: relative;
+  }
+  .ios-row + .ios-row::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 16px;
+    right: 0;
+    height: 0.5px;
+    background: var(--ios-separator);
+  }
+  .ios-row:active { background: #E5E5EA; }
+
+  .ios-section-header {
+    font-size: 13px;
+    color: var(--ios-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    padding: 16px 16px 6px;
+    font-weight: 400;
+  }
+
+  .ios-footer-text {
+    font-size: 13px;
+    color: var(--ios-secondary);
+    padding: 6px 16px 0;
+    line-height: 1.3;
+  }
+
+  .ios-large-title {
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+  }
+
+  .ios-input {
+    background: transparent;
+    border: none;
+    outline: none;
+    width: 100%;
+    font-size: 17px;
+    color: var(--ios-label);
+  }
+  .ios-input::placeholder { color: var(--ios-tertiary); }
+
+  .ios-tabbar {
+    background: rgba(249, 249, 249, 0.94);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-top: 0.5px solid var(--ios-separator);
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  .sheet-enter { animation: slideUp 0.28s cubic-bezier(0.32, 0.72, 0, 1); }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .fade-enter { animation: fadeIn 0.2s ease-out; }
+
+  .seg-control {
+    background: rgba(120, 120, 128, 0.12);
+    border-radius: 9px;
+    padding: 2px;
+    display: flex;
+    gap: 0;
+  }
+  .seg-option {
+    flex: 1;
+    padding: 6px 10px;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+    border-radius: 7px;
+    color: var(--ios-label);
+    transition: background 0.15s;
+  }
+  .seg-option.active {
+    background: var(--ios-card);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.04), 0 3px 1px rgba(0,0,0,0.04);
+  }
+
+  .cat-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .cat-dot-lg {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { scrollbar-width: none; }
+
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] { -moz-appearance: textfield; }
+
+  .ios-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 17px;
+    color: var(--ios-label);
+    text-align: right;
+    padding-right: 18px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23999' d='M5 6L0 0h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right center;
+  }
+
+  /* Chart bar hover/tap */
+  .bar-segment { transition: opacity 0.15s; }
+  .bar-segment:active { opacity: 0.7; }
+</style>
+
 </head>
 
-<body class="bg-[#F2F2F7]">
+<body>
 <div id="root"></div>
 
 <script type="text/babel">
 
-const Header = ({children}) => (
-  <div className="bg-gradient-to-r from-blue-500 to-green-400 text-white p-6 pb-10 rounded-b-3xl shadow">
-    {children}
-  </div>
-);
+// ============== UTILITIES ==============
 
-// ---------------- APP ----------------
-function App(){
+const formatINR = (n) => {
+  const num = Number(n) || 0;
+  return num.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+};
 
-  const [page,setPage]=React.useState("home");
-  const [search,setSearch]=React.useState("");
+const formatINRCompact = (n) => {
+  const num = Number(n) || 0;
+  if (num >= 10000000) return `${(num/10000000).toFixed(1)}Cr`;
+  if (num >= 100000) return `${(num/100000).toFixed(1)}L`;
+  if (num >= 1000) return `${(num/1000).toFixed(1)}k`;
+  return `${num}`;
+};
 
-  const [expenses,setExpenses]=React.useState(
-    JSON.parse(localStorage.getItem("expenses"))||[]
-  );
+const todayISO = () => new Date().toISOString().split('T')[0];
+const monthKey = (dateStr) => dateStr ? dateStr.substring(0, 7) : '';
+const monthLabel = (key) => {
+  if (!key) return '';
+  const [y, m] = key.split('-');
+  const d = new Date(Number(y), Number(m) - 1, 1);
+  return d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+};
+const monthLabelShort = (key) => {
+  if (!key) return '';
+  const [y, m] = key.split('-');
+  const d = new Date(Number(y), Number(m) - 1, 1);
+  return d.toLocaleDateString('en-IN', { month: 'short' });
+};
 
-  const [categories,setCategories]=React.useState(
-    JSON.parse(localStorage.getItem("categories"))||["Fuel","Food","Grocery","Other"]
-  );
+const PALETTE = [
+  '#007AFF', '#FF9500', '#34C759', '#FF3B30', '#AF52DE',
+  '#FF2D55', '#5856D6', '#5AC8FA', '#FFCC00', '#30D158',
+  '#BF5AF2', '#FF6482'
+];
+const catColor = (name) => {
+  let h = 0;
+  for (let i = 0; i < (name || '').length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffffffff;
+  return PALETTE[Math.abs(h) % PALETTE.length];
+};
 
-  const [payments,setPayments]=React.useState(
-    JSON.parse(localStorage.getItem("payments"))||["ICICI","SBI","Coral CC","Emerald CC"]
-  );
+const csvCell = (v) => {
+  const s = String(v ?? '');
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+};
 
-  const [editIndex,setEditIndex]=React.useState(null);
+const load = (key, fallback) => {
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
+  catch { return fallback; }
+};
+const save = (key, val) => localStorage.setItem(key, JSON.stringify(val));
 
-  const saveExpense=(data)=>{
-    if(!data.amount || data.amount<=0) return;
+// ============== CUSTOM SVG CHARTS ==============
 
-    const arr=[...expenses,data];
-    setExpenses(arr);
-    localStorage.setItem("expenses",JSON.stringify(arr));
-    setPage("home");
-  };
+// Donut chart with SVG arcs
+function DonutChart({ data, size = 200 }) {
+  const total = data.reduce((s, d) => s + d.value, 0);
+  if (total === 0) return null;
 
-  const deleteExp=(i)=>{
-    if(!confirm("Delete?")) return;
-    const arr=[...expenses];
-    arr.splice(i,1);
-    setExpenses(arr);
-    localStorage.setItem("expenses",JSON.stringify(arr));
-  };
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = size / 2 - 10;
+  const innerR = r * 0.6;
 
-  const updateExpense=(data)=>{
-    const arr=[...expenses];
-    arr[editIndex]=data;
-    setExpenses(arr);
-    localStorage.setItem("expenses",JSON.stringify(arr));
-    setEditIndex(null);
-  };
+  let currentAngle = -Math.PI / 2; // start at top
 
-  const exportCSV=()=>{
-    let csv="Date,Details,Category,Payment,Amount\n";
-    expenses.forEach(e=>{
-      csv+=`${e.date},${e.details},${e.category},${e.payment},${e.amount}\n`;
-    });
-    const blob=new Blob([csv]);
-    const a=document.createElement("a");
-    a.href=URL.createObjectURL(blob);
-    a.download="expenses.csv";
-    a.click();
-  };
+  const arcs = data.map((d, i) => {
+    const angle = (d.value / total) * Math.PI * 2;
+    const startAngle = currentAngle;
+    const endAngle = currentAngle + angle;
 
-  // ---------- FILTER ----------
-  const filtered = expenses.filter(e =>
-    JSON.stringify(e).toLowerCase().includes(search.toLowerCase())
-  );
+    const x1 = cx + r * Math.cos(startAngle);
+    const y1 = cy + r * Math.sin(startAngle);
+    const x2 = cx + r * Math.cos(endAngle);
+    const y2 = cy + r * Math.sin(endAngle);
 
-  // ---------- SUMMARY ----------
-  let total=0,catTotals={};
-  expenses.forEach(e=>{
-    total+=Number(e.amount);
-    catTotals[e.category]=(catTotals[e.category]||0)+Number(e.amount);
+    const x3 = cx + innerR * Math.cos(endAngle);
+    const y3 = cy + innerR * Math.sin(endAngle);
+    const x4 = cx + innerR * Math.cos(startAngle);
+    const y4 = cy + innerR * Math.sin(startAngle);
+
+    const largeArc = angle > Math.PI ? 1 : 0;
+
+    const path = data.length === 1
+      ? `M ${cx - r} ${cy} A ${r} ${r} 0 1 1 ${cx + r} ${cy} A ${r} ${r} 0 1 1 ${cx - r} ${cy} M ${cx - innerR} ${cy} A ${innerR} ${innerR} 0 1 0 ${cx + innerR} ${cy} A ${innerR} ${innerR} 0 1 0 ${cx - innerR} ${cy} Z`
+      : `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} L ${x3} ${y3} A ${innerR} ${innerR} 0 ${largeArc} 0 ${x4} ${y4} Z`;
+
+    currentAngle = endAngle;
+
+    return (
+      <path
+        key={i}
+        d={path}
+        fill={d.color}
+        stroke="white"
+        strokeWidth="2"
+      />
+    );
   });
-  let top=Object.keys(catTotals).reduce((a,b)=>catTotals[a]>catTotals[b]?a:b,"");
 
-  return(
-    <div className="pb-20">
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      {arcs}
+      <text
+        x={cx}
+        y={cy - 6}
+        textAnchor="middle"
+        fontSize="11"
+        fill="rgba(60,60,67,0.6)"
+        style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}
+      >
+        Total
+      </text>
+      <text
+        x={cx}
+        y={cy + 14}
+        textAnchor="middle"
+        fontSize="18"
+        fontWeight="600"
+        fill="#000"
+        style={{ fontVariantNumeric: 'tabular-nums' }}
+      >
+        ₹{formatINRCompact(total)}
+      </text>
+    </svg>
+  );
+}
 
-      {/* HOME */}
-      {page==="home" && (
-        <>
-          <Header>
-            <h2 className="text-2xl font-bold">₹{total}</h2>
-            <p className="text-sm">{top && `Mostly spent on ${top}`}</p>
-          </Header>
+// Vertical bar chart for monthly trend
+function BarChart({ data, highlightKey, height = 180, onBarTap }) {
+  const [tapped, setTapped] = React.useState(null);
 
-          <div className="p-4 -mt-6">
+  const max = Math.max(...data.map(d => d.value), 1);
+  const barWidth = 100 / data.length;
+  const chartHeight = height - 40;
 
-            <div className="bg-white p-3 rounded-xl shadow mb-3">
-              <input
-                placeholder="Search..."
-                className="w-full p-2"
-                value={search}
-                onChange={e=>setSearch(e.target.value)}
+  // Y-axis ticks (3 levels)
+  const yTicks = [0, max / 2, max];
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <svg viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" width="100%" height={height}>
+        {/* Grid lines */}
+        {yTicks.map((t, i) => {
+          const y = chartHeight - (t / max) * chartHeight + 10;
+          return (
+            <line
+              key={i}
+              x1="0" x2="100"
+              y1={y} y2={y}
+              stroke="rgba(60,60,67,0.08)"
+              strokeWidth="0.3"
+              vectorEffect="non-scaling-stroke"
+            />
+          );
+        })}
+
+        {/* Bars */}
+        {data.map((d, i) => {
+          const h = (d.value / max) * chartHeight;
+          const x = i * barWidth + barWidth * 0.2;
+          const w = barWidth * 0.6;
+          const y = chartHeight - h + 10;
+          const isHighlight = d.key === highlightKey;
+          const fill = isHighlight ? 'var(--ios-blue)' : 'rgba(0,122,255,0.3)';
+
+          return (
+            <g key={i}>
+              <rect
+                x={x} y={y} width={w} height={h || 0.5}
+                fill={fill}
+                rx="1.5"
+                ry="1.5"
+                onClick={() => { setTapped(i); onBarTap?.(d); }}
+                style={{ cursor: 'pointer' }}
               />
-              <button onClick={exportCSV} className="mt-2 w-full bg-blue-500 text-white p-2 rounded">
-                Export CSV
-              </button>
-            </div>
+            </g>
+          );
+        })}
+      </svg>
 
-            {filtered.map((e,i)=>(
-              <div key={i} className="bg-white p-4 rounded-2xl shadow mb-3 flex justify-between items-center">
-                <div>
-                  <div className="text-lg font-bold">₹{e.amount}</div>
-                  <div className="text-xs text-gray-500">{e.category} • {e.payment}</div>
-                  <div className="text-xs text-gray-400">{e.date}</div>
-                </div>
-                <div>
-                  <button onClick={()=>setEditIndex(i)}>✏️</button>
-                  <button onClick={()=>deleteExp(i)}>❌</button>
-                </div>
+      {/* Month labels — separate so they don't squash */}
+      <div style={{ display: 'flex', marginTop: 4 }}>
+        {data.map((d, i) => (
+          <div
+            key={i}
+            style={{
+              flex: 1,
+              textAlign: 'center',
+              fontSize: 11,
+              color: d.key === highlightKey ? 'var(--ios-blue)' : 'var(--ios-secondary)',
+              fontWeight: d.key === highlightKey ? 600 : 400
+            }}
+          >
+            {d.label}
+          </div>
+        ))}
+      </div>
+
+      {/* Tooltip */}
+      {tapped !== null && data[tapped] && (
+        <div style={{
+          position: 'absolute',
+          top: 4, left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(0,0,0,0.85)',
+          color: 'white',
+          padding: '4px 10px',
+          borderRadius: 8,
+          fontSize: 12,
+          pointerEvents: 'none'
+        }}>
+          {data[tapped].label}: ₹{formatINR(data[tapped].value)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============== APP ==============
+function App() {
+  const [page, setPage] = React.useState("home");
+  const [expenses, setExpenses] = React.useState(() => load("expenses", []));
+  const [categories, setCategories] = React.useState(() =>
+    load("categories", ["Fuel", "Food", "Grocery", "Other"])
+  );
+  const [payments, setPayments] = React.useState(() =>
+    load("payments", ["ICICI", "SBI", "Coral CC", "Emerald CC"])
+  );
+  const [projects, setProjects] = React.useState(() =>
+    load("projects", ["Daily Life"])
+  );
+  // Migration: backfill project="Daily Life" on any existing expenses missing it
+  const [expensesMigrated, setExpensesMigrated] = React.useState(false);
+  React.useEffect(() => {
+    if (expensesMigrated) return;
+    const needsMigration = expenses.some(e => !e.project);
+    if (needsMigration) {
+      setExpenses(expenses.map(e => e.project ? e : { ...e, project: "Daily Life" }));
+    }
+    setExpensesMigrated(true);
+  }, []);
+  const [editing, setEditing] = React.useState(null);
+  const [adding, setAdding] = React.useState(false);
+  const [monthFilter, setMonthFilter] = React.useState("current");
+  const [projectFilter, setProjectFilter] = React.useState("Daily Life");
+  const [toast, setToast] = React.useState(null);
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2000);
+  };
+
+  React.useEffect(() => save("expenses", expenses), [expenses]);
+  React.useEffect(() => save("categories", categories), [categories]);
+  React.useEffect(() => save("payments", payments), [payments]);
+  React.useEffect(() => save("projects", projects), [projects]);
+
+  const addExpense = (data) => {
+    if (!data.details || !data.details.trim()) {
+      showToast("Description is required");
+      return false;
+    }
+    if (!data.amount || Number(data.amount) <= 0) {
+      showToast("Enter a valid amount");
+      return false;
+    }
+    const now = new Date().toISOString();
+    setExpenses([...expenses, {
+      ...data,
+      details: data.details.trim(),
+      id: Date.now() + Math.random(),
+      createdAt: now,
+      updatedAt: now
+    }]);
+    setAdding(false);
+    showToast("Expense added");
+    return true;
+  };
+
+  const updateExpense = (data) => {
+    if (!data.details || !data.details.trim()) {
+      showToast("Description is required");
+      return false;
+    }
+    if (!data.amount || Number(data.amount) <= 0) {
+      showToast("Enter a valid amount");
+      return false;
+    }
+    const arr = [...expenses];
+    arr[editing.index] = {
+      ...arr[editing.index],
+      ...data,
+      details: data.details.trim(),
+      updatedAt: new Date().toISOString()
+    };
+    setExpenses(arr);
+    setEditing(null);
+    showToast("Updated");
+    return true;
+  };
+
+  const deleteExpense = (index) => {
+    if (!confirm("Delete this expense?")) return;
+    const arr = [...expenses];
+    arr.splice(index, 1);
+    setExpenses(arr);
+    showToast("Deleted");
+  };
+
+  const exportJSON = () => {
+    const data = { expenses, categories, payments, projects, exportedAt: new Date().toISOString(), version: 3 };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `expenses-backup-${todayISO()}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast("Backup downloaded");
+  };
+
+  const importJSON = (file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (!data.expenses || !Array.isArray(data.expenses)) throw new Error("Invalid");
+        if (!confirm(`Restore ${data.expenses.length} expenses? This will replace all current data.`)) return;
+        // Migrate restored expenses to ensure project field exists
+        setExpenses(data.expenses.map(e => e.project ? e : { ...e, project: "Daily Life" }));
+        if (Array.isArray(data.categories)) setCategories(data.categories);
+        if (Array.isArray(data.payments)) setPayments(data.payments);
+        if (Array.isArray(data.projects)) setProjects(data.projects);
+        showToast("Restored");
+      } catch {
+        alert("Couldn't read backup file. Make sure it's a valid expense backup.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const exportCSV = () => {
+    const headers = [
+      "ID", "Date", "Description", "Category", "Payment Method", "Project", "Amount (INR)",
+      "Day of Week", "Month", "Year", "Created Timestamp", "Last Updated"
+    ];
+    const rows = expenses.map(e => {
+      const d = e.date ? new Date(e.date) : null;
+      return [
+        e.id || '',
+        e.date || '',
+        e.details || '',
+        e.category || '',
+        e.payment || '',
+        e.project || 'Daily Life',
+        e.amount || 0,
+        d ? d.toLocaleDateString('en-IN', { weekday: 'long' }) : '',
+        d ? d.toLocaleDateString('en-IN', { month: 'long' }) : '',
+        d ? d.getFullYear() : '',
+        e.createdAt || '',
+        e.updatedAt || ''
+      ].map(csvCell).join(',');
+    }).join('\n');
+
+    const csv = headers.join(',') + '\n' + rows;
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `expenses-${todayISO()}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast("CSV exported");
+  };
+
+  // Bulk reassign all expenses matching predicate to a new project
+  const bulkReassignProject = (matchFn, newProject) => {
+    let count = 0;
+    const arr = expenses.map(e => {
+      if (matchFn(e)) { count++; return { ...e, project: newProject }; }
+      return e;
+    });
+    setExpenses(arr);
+    showToast(`Tagged ${count} ${count === 1 ? 'expense' : 'expenses'} as ${newProject}`);
+  };
+
+  return (
+    <div className="min-h-screen pb-24">
+      {page === "home" && (
+        <HomePage
+          expenses={expenses}
+          projects={projects}
+          projectFilter={projectFilter}
+          setProjectFilter={setProjectFilter}
+          monthFilter={monthFilter}
+          setMonthFilter={setMonthFilter}
+          onEdit={(i) => setEditing({ index: i, data: expenses[i] })}
+          onDelete={deleteExpense}
+          onAdd={() => setAdding(true)}
+        />
+      )}
+      {page === "summary" && (
+        <SummaryPage
+          expenses={expenses}
+          projects={projects}
+          projectFilter={projectFilter}
+          setProjectFilter={setProjectFilter}
+          monthFilter={monthFilter}
+          setMonthFilter={setMonthFilter}
+        />
+      )}
+      {page === "settings" && (
+        <SettingsPage
+          categories={categories}
+          setCategories={setCategories}
+          payments={payments}
+          setPayments={setPayments}
+          projects={projects}
+          setProjects={setProjects}
+          expenses={expenses}
+          onBulkReassign={bulkReassignProject}
+          onExportCSV={exportCSV}
+          onExportJSON={exportJSON}
+          onImportJSON={importJSON}
+          showToast={showToast}
+        />
+      )}
+
+      {!(adding || editing) && (
+        <button
+          onClick={() => setAdding(true)}
+          className="fixed bottom-24 right-5 w-14 h-14 rounded-full text-white text-3xl flex items-center justify-center shadow-lg active:scale-95 transition-transform z-30"
+          style={{ background: 'var(--ios-blue)', boxShadow: '0 4px 16px rgba(0,122,255,0.4)' }}
+        >
+          +
+        </button>
+      )}
+
+      {(adding || editing) && (
+        <ExpenseSheet
+          data={editing?.data}
+          categories={categories}
+          payments={payments}
+          projects={projects}
+          defaultProject={projectFilter !== "All" ? projectFilter : "Daily Life"}
+          onSave={editing ? updateExpense : addExpense}
+          onClose={() => { setAdding(false); setEditing(null); }}
+        />
+      )}
+
+      {!(adding || editing) && (
+        <div className="ios-tabbar fixed bottom-0 left-0 right-0 flex">
+          <TabButton icon="📋" label="Expenses" active={page === "home"} onClick={() => setPage("home")} />
+          <TabButton icon="📊" label="Summary" active={page === "summary"} onClick={() => setPage("summary")} />
+          <TabButton icon="⚙️" label="Settings" active={page === "settings"} onClick={() => setPage("settings")} />
+        </div>
+      )}
+
+      {toast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-black/80 text-white text-sm px-4 py-2 rounded-full fade-enter">
+          {toast}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TabButton({ icon, label, active, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex-1 flex flex-col items-center py-2 gap-0.5"
+      style={{ color: active ? 'var(--ios-blue)' : 'var(--ios-secondary)' }}
+    >
+      <span className="text-xl leading-none">{icon}</span>
+      <span className="text-[10px] font-medium">{label}</span>
+    </button>
+  );
+}
+
+// ============== MONTH PICKER MODAL ==============
+function MonthPickerModal({ months, current, onPick, onClose }) {
+  return (
+    <div className="fixed inset-0 z-40 flex items-end justify-center fade-enter" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={onClose}>
+      <div
+        className="w-full max-w-md bg-[#F2F2F7] rounded-t-2xl sheet-enter max-h-[70vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="sticky top-0 bg-[#F2F2F7]/95 backdrop-blur z-10 flex items-center justify-between px-4 py-3 border-b border-black/5">
+          <button onClick={onClose} className="text-[17px]" style={{ color: 'var(--ios-blue)' }}>Cancel</button>
+          <div className="text-[17px] font-semibold">Select Month</div>
+          <div className="w-12"></div>
+        </div>
+        <div className="p-4">
+          <div className="ios-group">
+            {months.length === 0 ? (
+              <div className="ios-row text-[15px]" style={{ color: 'var(--ios-secondary)' }}>
+                No other months with data
+              </div>
+            ) : months.map(m => (
+              <div
+                key={m}
+                className="ios-row cursor-pointer"
+                onClick={() => { onPick(m); onClose(); }}
+              >
+                <span className="flex-1 text-[15px]">{monthLabel(m)}</span>
+                {current === m && <span style={{ color: 'var(--ios-blue)' }} className="text-lg">✓</span>}
               </div>
             ))}
-
           </div>
-        </>
-      )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-      {/* ADD */}
-      {page==="add" && (
-        <>
-          <Header><h2>Add Expense</h2></Header>
-          <div className="p-4 -mt-6">
-            <Form categories={categories} payments={payments} onSave={saveExpense}/>
-          </div>
-        </>
-      )}
+// ============== PROJECT CHIPS ROW ==============
+function ProjectChips({ projects, current, onPick }) {
+  const items = [...projects, "All"];
+  return (
+    <div className="px-4 mt-2 -mx-1 overflow-x-auto no-scrollbar">
+      <div className="flex gap-2 px-1 pb-1">
+        {items.map(p => {
+          const isAll = p === "All";
+          const isOn = current === p;
+          return (
+            <button
+              key={p}
+              onClick={() => onPick(p)}
+              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium transition-all"
+              style={{
+                background: isOn ? 'var(--ios-blue)' : 'white',
+                color: isOn ? 'white' : 'var(--ios-label)',
+                border: isOn ? '0.5px solid var(--ios-blue)' : '0.5px solid var(--ios-separator)'
+              }}
+            >
+              {!isAll && (
+                <span
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{ background: isOn ? 'white' : catColor(p) }}
+                />
+              )}
+              {p}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
-      {/* SETTINGS */}
-      {page==="settings" && (
-        <>
-          <Header><h2>Settings</h2></Header>
-          <div className="p-4 -mt-6">
-            <Settings
-              categories={categories}
-              payments={payments}
-              setCategories={setCategories}
-              setPayments={setPayments}
-            />
-          </div>
-        </>
-      )}
+// ============== HOME PAGE ==============
+function HomePage({ expenses, projects, projectFilter, setProjectFilter, monthFilter, setMonthFilter, onEdit, onDelete, onAdd }) {
+  const [search, setSearch] = React.useState("");
+  const [showPicker, setShowPicker] = React.useState(false);
 
-      {/* SUMMARY */}
-      {page==="summary" && (
-        <>
-          <Header><h2>Summary</h2></Header>
-          <div className="p-4 -mt-6">
-            <div className="bg-white p-4 rounded-xl shadow">
-              <div>Total Spend: ₹{total}</div>
-              <div className="mt-2">Top Category: {top}</div>
+  // Apply project filter first
+  const projectFiltered = projectFilter === "All"
+    ? expenses
+    : expenses.filter(e => (e.project || "Daily Life") === projectFilter);
 
-              <div className="mt-4">
-                {Object.entries(catTotals).map(([k,v])=>(
-                  <div key={k} className="flex justify-between">
-                    <span>{k}</span>
-                    <span>₹{v}</span>
-                  </div>
+  const currentMonth = monthKey(todayISO());
+  const monthFiltered = projectFiltered.filter(e => {
+    if (monthFilter === "all") return true;
+    if (monthFilter === "current") return monthKey(e.date) === currentMonth;
+    return monthKey(e.date) === monthFilter;
+  });
+
+  const filtered = monthFiltered.filter(e => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (e.details || '').toLowerCase().includes(q) ||
+           (e.category || '').toLowerCase().includes(q) ||
+           (e.payment || '').toLowerCase().includes(q) ||
+           String(e.amount).includes(q);
+  });
+
+  const sorted = [...filtered].sort((a, b) => {
+    if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+    return (b.id || 0) - (a.id || 0);
+  });
+
+  const groups = {};
+  sorted.forEach(e => {
+    const idx = expenses.indexOf(e);
+    if (!groups[e.date]) groups[e.date] = [];
+    groups[e.date].push({ ...e, _idx: idx });
+  });
+
+  const total = filtered.reduce((s, e) => s + Number(e.amount || 0), 0);
+  const allMonths = [...new Set(projectFiltered.map(e => monthKey(e.date)))].sort().reverse();
+
+  const periodLabel = monthFilter === "current" ? monthLabel(currentMonth) :
+                       monthFilter === "all" ? "All time" :
+                       monthLabel(monthFilter);
+
+  return (
+    <div>
+      <div className="px-4 pt-12 pb-1">
+        <div className="text-xs uppercase tracking-wide" style={{ color: 'var(--ios-secondary)' }}>
+          {periodLabel} · {projectFilter}
+        </div>
+        <h1 className="ios-large-title tnum">₹{formatINR(total)}</h1>
+        <div className="text-sm mt-1" style={{ color: 'var(--ios-secondary)' }}>
+          {filtered.length} {filtered.length === 1 ? 'expense' : 'expenses'}
+        </div>
+      </div>
+
+      <ProjectChips projects={projects} current={projectFilter} onPick={setProjectFilter} />
+
+      <div className="px-4 mt-2">
+        <div className="seg-control">
+          <button className={`seg-option ${monthFilter === "current" ? "active" : ""}`} onClick={() => setMonthFilter("current")}>
+            This month
+          </button>
+          <button className={`seg-option ${monthFilter === "all" ? "active" : ""}`} onClick={() => setMonthFilter("all")}>
+            All
+          </button>
+          <button
+            className={`seg-option ${monthFilter !== "current" && monthFilter !== "all" ? "active" : ""}`}
+            onClick={() => setShowPicker(true)}
+          >
+            {monthFilter !== "current" && monthFilter !== "all"
+              ? monthLabelShort(monthFilter)
+              : "Pick"}
+          </button>
+        </div>
+      </div>
+
+      <div className="px-4 mt-3">
+        <div className="flex items-center gap-2 bg-black/[0.06] rounded-xl px-3 py-2">
+          <span className="text-base" style={{ color: 'var(--ios-secondary)' }}>🔍</span>
+          <input
+            placeholder="Search"
+            className="ios-input text-[15px]"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="text-sm"
+              style={{ color: 'var(--ios-blue)' }}
+            >Clear</button>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4 px-4">
+        {Object.keys(groups).length === 0 ? (
+          <EmptyState />
+        ) : (
+          Object.entries(groups).map(([date, items]) => (
+            <div key={date} className="mb-4">
+              <div className="ios-section-header">{formatDateLong(date)}</div>
+              <div className="ios-group">
+                {items.map((e) => (
+                  <ExpenseRow
+                    key={e.id || e._idx}
+                    expense={e}
+                    onEdit={() => onEdit(e._idx)}
+                    onDelete={() => onDelete(e._idx)}
+                  />
                 ))}
               </div>
             </div>
-          </div>
-        </>
-      )}
+          ))
+        )}
+      </div>
 
-      {/* EDIT MODAL */}
-      {editIndex!==null && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white p-4 rounded-xl w-11/12">
-            <Form
-              data={expenses[editIndex]}
-              categories={categories}
-              payments={payments}
-              onSave={updateExpense}
-            />
-            <button onClick={()=>setEditIndex(null)}>Close</button>
+      {showPicker && (
+        <MonthPickerModal
+          months={allMonths}
+          current={monthFilter}
+          onPick={setMonthFilter}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+const formatDateLong = (dateStr) => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+  const dStart = new Date(d); dStart.setHours(0,0,0,0);
+  if (dStart.getTime() === today.getTime()) return "Today";
+  if (dStart.getTime() === yesterday.getTime()) return "Yesterday";
+  return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+};
+
+function ExpenseRow({ expense, onEdit, onDelete }) {
+  const color = catColor(expense.category || 'Other');
+  const proj = expense.project || 'Daily Life';
+  const showProject = proj !== 'Daily Life';
+  return (
+    <div className="ios-row" onClick={onEdit}>
+      <div className="cat-dot-lg mr-3" style={{ background: color }}></div>
+      <div className="flex-1 min-w-0">
+        <div className="text-[15px] font-medium truncate">{expense.details || expense.category}</div>
+        <div className="text-[13px] truncate" style={{ color: 'var(--ios-secondary)' }}>
+          {expense.category} · {expense.payment}{showProject ? ` · ${proj}` : ''}
+        </div>
+      </div>
+      <div className="text-right ml-2">
+        <div className="text-[17px] font-semibold tnum">₹{formatINR(expense.amount)}</div>
+      </div>
+      <button
+        onClick={(ev) => { ev.stopPropagation(); onDelete(); }}
+        className="ml-3 text-lg opacity-40 active:opacity-100"
+      >🗑</button>
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="text-center py-16">
+      <div className="text-6xl mb-4 opacity-30">📋</div>
+      <div className="text-lg font-semibold mb-1">No expenses yet</div>
+      <div className="text-sm mb-6" style={{ color: 'var(--ios-secondary)' }}>
+        Tap the + button to add your first one
+      </div>
+    </div>
+  );
+}
+
+// ============== OPTION PICKER (custom dropdown bottom sheet) ==============
+function OptionPicker({ title, options, current, showDot, onPick, onClose }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center fade-enter"
+      style={{ background: 'rgba(0,0,0,0.4)' }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md bg-[#F2F2F7] rounded-t-2xl sheet-enter max-h-[60vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="sticky top-0 bg-[#F2F2F7]/95 backdrop-blur z-10 flex items-center justify-between px-4 py-3 border-b border-black/5">
+          <button onClick={onClose} className="text-[15px]" style={{ color: 'var(--ios-blue)' }}>Cancel</button>
+          <div className="text-[15px] font-semibold">{title}</div>
+          <div className="w-12"></div>
+        </div>
+        <div className="p-4">
+          <div className="ios-group">
+            {options.map(opt => (
+              <div
+                key={opt}
+                className="ios-row cursor-pointer"
+                onClick={() => { onPick(opt); onClose(); }}
+              >
+                {showDot && (
+                  <div className="cat-dot-lg mr-3" style={{ background: catColor(opt) }}></div>
+                )}
+                <span className="flex-1 text-[15px]">{opt}</span>
+                {current === opt && <span style={{ color: 'var(--ios-blue)' }} className="text-lg">✓</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============== EXPENSE SHEET (Add/Edit) ==============
+function ExpenseSheet({ data, categories, payments, projects, defaultProject, onSave, onClose }) {
+  const [form, setForm] = React.useState({
+    amount: data?.amount || "",
+    date: data?.date || todayISO(),
+    details: data?.details || "",
+    category: data?.category || categories[0] || "",
+    payment: data?.payment || payments[0] || "",
+    project: data?.project || defaultProject || "Daily Life"
+  });
+  const [showCatPicker, setShowCatPicker] = React.useState(false);
+  const [showPayPicker, setShowPayPicker] = React.useState(false);
+  const [showProjPicker, setShowProjPicker] = React.useState(false);
+  const detailsRef = React.useRef(null);
+  const isEdit = !!data;
+
+  React.useEffect(() => {
+    if (!isEdit) {
+      setTimeout(() => detailsRef.current?.focus(), 300);
+    }
+  }, []);
+
+  const handleSave = () => onSave(form);
+
+  return (
+    <div className="fixed inset-0 z-40 fade-enter" style={{ background: 'var(--ios-bg)' }}>
+      <div className="flex flex-col h-full max-w-md mx-auto">
+        {/* Header — pinned to top */}
+        <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-black/5" style={{ background: 'var(--ios-bg)' }}>
+          <button onClick={onClose} className="text-[17px]" style={{ color: 'var(--ios-blue)' }}>Cancel</button>
+          <div className="text-[17px] font-semibold">{isEdit ? "Edit Expense" : "New Expense"}</div>
+          <button onClick={handleSave} className="text-[17px] font-semibold" style={{ color: 'var(--ios-blue)' }}>
+            {isEdit ? "Save" : "Add"}
+          </button>
+        </div>
+
+        {/* Scrollable body — fills remaining space */}
+        <div className="flex-1 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <div className="p-4 pb-80">
+            <div className="text-center my-6">
+              <div className="text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--ios-secondary)' }}>Amount</div>
+              <div className="flex items-center justify-center gap-1">
+                <span className="text-4xl font-light" style={{ color: 'var(--ios-secondary)' }}>₹</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="0"
+                  className="bg-transparent outline-none text-5xl font-light text-center tnum w-48"
+                  value={form.amount}
+                  onChange={e => setForm({ ...form, amount: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="ios-group">
+              <div className="ios-row">
+                <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>Date</span>
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={e => setForm({ ...form, date: e.target.value })}
+                  className="ios-input text-right"
+                  max={todayISO()}
+                />
+              </div>
+              <div className="ios-row">
+                <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>Description</span>
+                <input
+                  ref={detailsRef}
+                  placeholder="What was it for?"
+                  value={form.details}
+                  onChange={e => setForm({ ...form, details: e.target.value })}
+                  className="ios-input text-right"
+                  maxLength={100}
+                />
+              </div>
+              <div className="ios-row cursor-pointer" onClick={() => setShowCatPicker(true)}>
+                <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>Category</span>
+                <div className="flex-1 flex items-center justify-end gap-2">
+                  <div className="cat-dot-lg" style={{ background: catColor(form.category) }}></div>
+                  <span className="text-[15px]">{form.category}</span>
+                  <span style={{ color: 'var(--ios-tertiary)' }} className="text-sm">›</span>
+                </div>
+              </div>
+              <div className="ios-row cursor-pointer" onClick={() => setShowPayPicker(true)}>
+                <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>Payment</span>
+                <div className="flex-1 flex items-center justify-end gap-2">
+                  <span className="text-[15px]">{form.payment}</span>
+                  <span style={{ color: 'var(--ios-tertiary)' }} className="text-sm">›</span>
+                </div>
+              </div>
+              <div className="ios-row cursor-pointer" onClick={() => setShowProjPicker(true)}>
+                <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>Project</span>
+                <div className="flex-1 flex items-center justify-end gap-2">
+                  <div className="cat-dot-lg" style={{ background: catColor(form.project) }}></div>
+                  <span className="text-[15px]">{form.project}</span>
+                  <span style={{ color: 'var(--ios-tertiary)' }} className="text-sm">›</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {showCatPicker && (
+        <OptionPicker
+          title="Select Category"
+          options={categories}
+          current={form.category}
+          showDot={true}
+          onPick={(v) => setForm({ ...form, category: v })}
+          onClose={() => setShowCatPicker(false)}
+        />
+      )}
+      {showPayPicker && (
+        <OptionPicker
+          title="Select Payment"
+          options={payments}
+          current={form.payment}
+          showDot={false}
+          onPick={(v) => setForm({ ...form, payment: v })}
+          onClose={() => setShowPayPicker(false)}
+        />
+      )}
+      {showProjPicker && (
+        <OptionPicker
+          title="Select Project"
+          options={projects}
+          current={form.project}
+          showDot={true}
+          onPick={(v) => setForm({ ...form, project: v })}
+          onClose={() => setShowProjPicker(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ============== SUMMARY PAGE WITH CHARTS ==============
+function SummaryPage({ expenses, projects, projectFilter, setProjectFilter, monthFilter, setMonthFilter }) {
+  const [showPicker, setShowPicker] = React.useState(false);
+  const [excludedCats, setExcludedCats] = React.useState([]); // toggled-OFF categories
+
+  // Apply project filter first
+  const projectFiltered = projectFilter === "All"
+    ? expenses
+    : expenses.filter(e => (e.project || "Daily Life") === projectFilter);
+
+  const currentMonth = monthKey(todayISO());
+  const allMonths = [...new Set(projectFiltered.map(e => monthKey(e.date)))].sort().reverse();
+
+  const activeMonth = monthFilter === "current" ? currentMonth :
+                      monthFilter === "all" ? null : monthFilter;
+
+  const monthScoped = activeMonth
+    ? projectFiltered.filter(e => monthKey(e.date) === activeMonth)
+    : projectFiltered;
+
+  // All categories that exist within this project+month scope (for chip display)
+  const scopedCats = [...new Set(monthScoped.map(e => e.category))].sort();
+
+  // Apply category multi-select
+  const filtered = monthScoped.filter(e => !excludedCats.includes(e.category));
+
+  const toggleCat = (c) => {
+    setExcludedCats(excludedCats.includes(c)
+      ? excludedCats.filter(x => x !== c)
+      : [...excludedCats, c]);
+  };
+
+  const total = filtered.reduce((s, e) => s + Number(e.amount || 0), 0);
+
+  const byCategory = {};
+  const byPayment = {};
+  filtered.forEach(e => {
+    byCategory[e.category] = (byCategory[e.category] || 0) + Number(e.amount || 0);
+    byPayment[e.payment] = (byPayment[e.payment] || 0) + Number(e.amount || 0);
+  });
+
+  const catData = Object.entries(byCategory)
+    .map(([name, value]) => ({ name, value, color: catColor(name) }))
+    .sort((a, b) => b.value - a.value);
+
+  const payData = Object.entries(byPayment)
+    .map(([name, value]) => ({ name, value, color: catColor(name) }))
+    .sort((a, b) => b.value - a.value);
+
+  // Last 6 months trend (respects project filter, ignores category exclusions for context)
+  const trendData = (() => {
+    const months = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const sum = projectFiltered
+        .filter(e => monthKey(e.date) === key && !excludedCats.includes(e.category))
+        .reduce((s, e) => s + Number(e.amount || 0), 0);
+      months.push({ label: monthLabelShort(key), value: sum, key });
+    }
+    return months;
+  })();
+
+  const prevMonthKey = (() => {
+    if (!activeMonth) return null;
+    const [y, m] = activeMonth.split('-').map(Number);
+    const d = new Date(y, m - 2, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  })();
+  const prevTotal = prevMonthKey
+    ? projectFiltered.filter(e => monthKey(e.date) === prevMonthKey && !excludedCats.includes(e.category)).reduce((s, e) => s + Number(e.amount || 0), 0)
+    : 0;
+  const delta = prevTotal > 0 ? ((total - prevTotal) / prevTotal) * 100 : null;
+
+  return (
+    <div>
+      <div className="px-4 pt-12 pb-1">
+        <div className="text-xs uppercase tracking-wide" style={{ color: 'var(--ios-secondary)' }}>
+          Summary · {projectFilter}
+        </div>
+        <h1 className="ios-large-title">
+          {activeMonth ? monthLabel(activeMonth) : "All Time"}
+        </h1>
+      </div>
+
+      <ProjectChips projects={projects} current={projectFilter} onPick={setProjectFilter} />
+
+      <div className="px-4 mt-2">
+        <div className="seg-control">
+          <button className={`seg-option ${monthFilter === "current" ? "active" : ""}`} onClick={() => setMonthFilter("current")}>
+            This month
+          </button>
+          <button className={`seg-option ${monthFilter === "all" ? "active" : ""}`} onClick={() => setMonthFilter("all")}>
+            All
+          </button>
+          <button
+            className={`seg-option ${monthFilter !== "current" && monthFilter !== "all" ? "active" : ""}`}
+            onClick={() => setShowPicker(true)}
+          >
+            {monthFilter !== "current" && monthFilter !== "all"
+              ? monthLabelShort(monthFilter)
+              : "Pick"}
+          </button>
+        </div>
+      </div>
+
+      {scopedCats.length > 1 && (
+        <div className="px-4 mt-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--ios-secondary)' }}>
+              Categories
+            </div>
+            {excludedCats.length > 0 && (
+              <button onClick={() => setExcludedCats([])} className="text-[12px]" style={{ color: 'var(--ios-blue)' }}>
+                Show all
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {scopedCats.map(c => {
+              const on = !excludedCats.includes(c);
+              return (
+                <button
+                  key={c}
+                  onClick={() => toggleCat(c)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] transition-all"
+                  style={{
+                    background: on ? 'rgba(0,122,255,0.12)' : 'white',
+                    color: on ? 'var(--ios-blue)' : 'var(--ios-secondary)',
+                    border: on ? '0.5px solid rgba(0,122,255,0.4)' : '0.5px solid var(--ios-separator)',
+                    fontWeight: on ? 500 : 400
+                  }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: catColor(c) }}></span>
+                  {c}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* NAV */}
-      <div className="fixed bottom-0 w-full bg-white border-t flex">
-        <button className="flex-1 p-2" onClick={()=>setPage("add")}>➕<div>Add</div></button>
-        <button className="flex-1 p-2" onClick={()=>setPage("home")}>📊<div>History</div></button>
-        <button className="flex-1 p-2" onClick={()=>setPage("summary")}>📈<div>Summary</div></button>
-        <button className="flex-1 p-2" onClick={()=>setPage("settings")}>⚙️<div>Settings</div></button>
+      <div className="px-4 mt-5">
+        <div className="ios-group p-5">
+          <div className="text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--ios-secondary)' }}>Total Spend</div>
+          <div className="text-4xl font-semibold tnum">₹{formatINR(total)}</div>
+          {delta !== null && (
+            <div className="text-sm mt-1" style={{ color: delta >= 0 ? 'var(--ios-red)' : 'var(--ios-green)' }}>
+              {delta >= 0 ? '↑' : '↓'} {Math.abs(delta).toFixed(1)}% vs last month (₹{formatINR(prevTotal)})
+            </div>
+          )}
+        </div>
       </div>
 
+      {filtered.length === 0 ? (
+        <div className="px-4 mt-10 text-center" style={{ color: 'var(--ios-secondary)' }}>
+          No expenses in this period
+        </div>
+      ) : (
+        <>
+          {/* Category donut */}
+          {catData.length > 0 && (
+            <div className="px-4 mt-5">
+              <div className="ios-section-header">Spending by Category</div>
+              <div className="ios-group p-4">
+                <div className="flex justify-center">
+                  <DonutChart data={catData} size={200} />
+                </div>
+                <div className="mt-4 space-y-2">
+                  {catData.map(d => {
+                    const pct = total > 0 ? (d.value / total) * 100 : 0;
+                    return (
+                      <div key={d.name} className="flex items-center">
+                        <div className="cat-dot mr-3" style={{ background: d.color }}></div>
+                        <div className="flex-1 text-[14px]">{d.name}</div>
+                        <div className="text-[14px] font-semibold tnum mr-2">₹{formatINR(d.value)}</div>
+                        <div className="text-[12px] w-10 text-right" style={{ color: 'var(--ios-secondary)' }}>
+                          {pct.toFixed(0)}%
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 6-month trend */}
+          <div className="px-4 mt-5">
+            <div className="ios-section-header">Last 6 Months</div>
+            <div className="ios-group p-4">
+              <BarChart data={trendData} highlightKey={activeMonth} height={180} />
+            </div>
+          </div>
+
+          {/* Payment method bars */}
+          {payData.length > 0 && (
+            <div className="px-4 mt-5">
+              <div className="ios-section-header">By Payment Method</div>
+              <div className="ios-group p-4">
+                {payData.map((d) => {
+                  const pct = total > 0 ? (d.value / total) * 100 : 0;
+                  const maxValue = payData[0].value;
+                  const barWidth = maxValue > 0 ? (d.value / maxValue) * 100 : 0;
+                  return (
+                    <div key={d.name} className="mb-3 last:mb-0">
+                      <div className="flex justify-between items-baseline mb-1">
+                        <span className="text-[14px] font-medium">{d.name}</span>
+                        <span className="text-[14px] font-semibold tnum">₹{formatINR(d.value)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 bg-black/[0.06] rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{ width: `${barWidth}%`, background: d.color }}
+                          />
+                        </div>
+                        <span className="text-[11px] w-9 text-right" style={{ color: 'var(--ios-secondary)' }}>
+                          {pct.toFixed(0)}%
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Quick stats */}
+          <div className="px-4 mt-5">
+            <div className="ios-section-header">Quick Stats</div>
+            <div className="ios-group">
+              <div className="ios-row">
+                <span className="flex-1 text-[15px]">Average per expense</span>
+                <span className="text-[15px] font-semibold tnum">
+                  ₹{formatINR(filtered.length > 0 ? total / filtered.length : 0)}
+                </span>
+              </div>
+              <div className="ios-row">
+                <span className="flex-1 text-[15px]">Highest expense</span>
+                <span className="text-[15px] font-semibold tnum">
+                  ₹{formatINR(Math.max(...filtered.map(e => Number(e.amount || 0))))}
+                </span>
+              </div>
+              <div className="ios-row">
+                <span className="flex-1 text-[15px]">Number of expenses</span>
+                <span className="text-[15px] font-semibold tnum">{filtered.length}</span>
+              </div>
+              {activeMonth && (
+                <div className="ios-row">
+                  <span className="flex-1 text-[15px]">Daily average</span>
+                  <span className="text-[15px] font-semibold tnum">
+                    ₹{formatINR(total / new Date(
+                      Number(activeMonth.split('-')[0]),
+                      Number(activeMonth.split('-')[1]),
+                      0
+                    ).getDate())}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="h-20" />
+
+      {showPicker && (
+        <MonthPickerModal
+          months={allMonths}
+          current={monthFilter}
+          onPick={setMonthFilter}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
     </div>
   );
 }
 
-// ---------- FORM ----------
-function Form({data={},categories,payments,onSave}){
-  const [form,setForm]=React.useState({
-    amount:data.amount||"",
-    category:data.category||categories[0],
-    payment:data.payment||payments[0],
-    date:data.date||new Date().toISOString().split('T')[0],
-    details:data.details||""
-  });
+// ============== SETTINGS PAGE ==============
+function SettingsPage({ categories, setCategories, payments, setPayments, projects, setProjects, expenses, onBulkReassign, onExportCSV, onExportJSON, onImportJSON, showToast }) {
+  const fileRef = React.useRef(null);
+  const [showBulkTool, setShowBulkTool] = React.useState(false);
 
-  return(
-    <div className="bg-white p-4 rounded-2xl shadow">
-      <input
-        type="number"
-        inputMode="decimal"
-        placeholder="Amount"
-        className="w-full p-3 border rounded mb-2"
-        value={form.amount}
-        onChange={e=>setForm({...form,amount:e.target.value})}
-      />
+  const addCategory = () => {
+    const name = prompt("New category name");
+    if (!name || !name.trim()) return;
+    const trimmed = name.trim();
+    if (categories.includes(trimmed)) { showToast("Already exists"); return; }
+    setCategories([...categories, trimmed]);
+  };
 
-      <select className="w-full p-3 border rounded mb-2"
-        onChange={e=>setForm({...form,category:e.target.value})}>
-        {categories.map(c=><option key={c}>{c}</option>)}
-      </select>
+  const editCategory = (i) => {
+    const oldName = categories[i];
+    const newName = prompt("Rename category", oldName);
+    if (!newName || !newName.trim() || newName.trim() === oldName) return;
+    const trimmed = newName.trim();
+    if (categories.includes(trimmed)) { showToast("Name already exists"); return; }
+    const arr = [...categories];
+    arr[i] = trimmed;
+    setCategories(arr);
+  };
 
-      <select className="w-full p-3 border rounded mb-2"
-        onChange={e=>setForm({...form,payment:e.target.value})}>
-        {payments.map(p=><option key={p}>{p}</option>)}
-      </select>
+  const deleteCategory = (i) => {
+    const name = categories[i];
+    const inUse = expenses.filter(e => e.category === name).length;
+    if (inUse > 0) {
+      if (!confirm(`"${name}" is used in ${inUse} expense${inUse === 1 ? '' : 's'}. Delete anyway? Those expenses will keep the old label.`)) return;
+    }
+    setCategories(categories.filter((_, idx) => idx !== i));
+  };
 
-      <input type="date"
-        className="w-full p-3 border rounded mb-2"
-        value={form.date}
-        onChange={e=>setForm({...form,date:e.target.value})}
-      />
+  const addPayment = () => {
+    const name = prompt("New payment method");
+    if (!name || !name.trim()) return;
+    const trimmed = name.trim();
+    if (payments.includes(trimmed)) { showToast("Already exists"); return; }
+    setPayments([...payments, trimmed]);
+  };
 
-      <input placeholder="Details"
-        className="w-full p-3 border rounded mb-2"
-        value={form.details}
-        onChange={e=>setForm({...form,details:e.target.value})}
-      />
+  const editPayment = (i) => {
+    const oldName = payments[i];
+    const newName = prompt("Rename payment method", oldName);
+    if (!newName || !newName.trim() || newName.trim() === oldName) return;
+    const trimmed = newName.trim();
+    if (payments.includes(trimmed)) { showToast("Name already exists"); return; }
+    const arr = [...payments];
+    arr[i] = trimmed;
+    setPayments(arr);
+  };
 
-      <button
-        onClick={()=>onSave(form)}
-        className="w-full bg-gradient-to-r from-blue-500 to-green-400 text-white p-3 rounded-xl">
-        Save Expense
-      </button>
+  const deletePayment = (i) => {
+    const name = payments[i];
+    const inUse = expenses.filter(e => e.payment === name).length;
+    if (inUse > 0) {
+      if (!confirm(`"${name}" is used in ${inUse} expense${inUse === 1 ? '' : 's'}. Delete anyway?`)) return;
+    }
+    setPayments(payments.filter((_, idx) => idx !== i));
+  };
+
+  const addProject = () => {
+    const name = prompt("New project / trip / event name");
+    if (!name || !name.trim()) return;
+    const trimmed = name.trim();
+    if (projects.includes(trimmed)) { showToast("Already exists"); return; }
+    setProjects([...projects, trimmed]);
+  };
+
+  const editProject = (i) => {
+    const oldName = projects[i];
+    if (oldName === "Daily Life") { showToast("Daily Life cannot be renamed"); return; }
+    const newName = prompt("Rename project", oldName);
+    if (!newName || !newName.trim() || newName.trim() === oldName) return;
+    const trimmed = newName.trim();
+    if (projects.includes(trimmed)) { showToast("Name already exists"); return; }
+    const arr = [...projects];
+    arr[i] = trimmed;
+    setProjects(arr);
+    // Rewrite all matching expenses
+    if (confirm(`Also rename in ${expenses.filter(e => e.project === oldName).length} expense(s)?`)) {
+      onBulkReassign(e => e.project === oldName, trimmed);
+    }
+  };
+
+  const deleteProject = (i) => {
+    const name = projects[i];
+    if (name === "Daily Life") { showToast("Daily Life cannot be deleted"); return; }
+    const inUse = expenses.filter(e => e.project === name).length;
+    if (inUse > 0) {
+      if (!confirm(`"${name}" is used in ${inUse} expense${inUse === 1 ? '' : 's'}. Delete project and move those expenses to Daily Life?`)) return;
+      onBulkReassign(e => e.project === name, "Daily Life");
+    }
+    setProjects(projects.filter((_, idx) => idx !== i));
+  };
+
+  return (
+    <div>
+      <div className="px-4 pt-12 pb-2">
+        <h1 className="ios-large-title">Settings</h1>
+      </div>
+
+      <div className="px-4 mt-4">
+        <div className="ios-section-header">Categories</div>
+        <div className="ios-group">
+          {categories.map((c, i) => {
+            const color = catColor(c);
+            const inUse = expenses.filter(e => e.category === c).length;
+            return (
+              <div key={i} className="ios-row">
+                <div className="cat-dot-lg mr-3" style={{ background: color }}></div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[15px]">{c}</div>
+                  {inUse > 0 && (
+                    <div className="text-[11px]" style={{ color: 'var(--ios-secondary)' }}>
+                      Used in {inUse} {inUse === 1 ? 'expense' : 'expenses'}
+                    </div>
+                  )}
+                </div>
+                <button onClick={() => editCategory(i)} className="text-sm mr-3" style={{ color: 'var(--ios-blue)' }}>Edit</button>
+                <button onClick={() => deleteCategory(i)} className="text-sm" style={{ color: 'var(--ios-red)' }}>Delete</button>
+              </div>
+            );
+          })}
+          <div className="ios-row cursor-pointer" onClick={addCategory}>
+            <div className="cat-dot-lg mr-3" style={{ background: 'var(--ios-blue)' }}></div>
+            <div className="flex-1 text-[15px]" style={{ color: 'var(--ios-blue)' }}>Add category</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4 mt-5">
+        <div className="ios-section-header">Payment Methods</div>
+        <div className="ios-group">
+          {payments.map((p, i) => {
+            const inUse = expenses.filter(e => e.payment === p).length;
+            return (
+              <div key={i} className="ios-row">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[15px]">{p}</div>
+                  {inUse > 0 && (
+                    <div className="text-[11px]" style={{ color: 'var(--ios-secondary)' }}>
+                      Used in {inUse} {inUse === 1 ? 'expense' : 'expenses'}
+                    </div>
+                  )}
+                </div>
+                <button onClick={() => editPayment(i)} className="text-sm mr-3" style={{ color: 'var(--ios-blue)' }}>Edit</button>
+                <button onClick={() => deletePayment(i)} className="text-sm" style={{ color: 'var(--ios-red)' }}>Delete</button>
+              </div>
+            );
+          })}
+          <div className="ios-row cursor-pointer" onClick={addPayment}>
+            <div className="cat-dot-lg mr-3" style={{ background: 'var(--ios-blue)' }}></div>
+            <div className="flex-1 text-[15px]" style={{ color: 'var(--ios-blue)' }}>Add payment method</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4 mt-5">
+        <div className="ios-section-header">Projects</div>
+        <div className="ios-group">
+          {projects.map((p, i) => {
+            const color = catColor(p);
+            const inUse = expenses.filter(e => (e.project || 'Daily Life') === p).length;
+            const isProtected = p === "Daily Life";
+            return (
+              <div key={i} className="ios-row">
+                <div className="cat-dot-lg mr-3" style={{ background: color }}></div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[15px]">{p}{isProtected && <span className="text-[11px] ml-1.5" style={{ color: 'var(--ios-tertiary)' }}>· default</span>}</div>
+                  {inUse > 0 && (
+                    <div className="text-[11px]" style={{ color: 'var(--ios-secondary)' }}>
+                      Used in {inUse} {inUse === 1 ? 'expense' : 'expenses'}
+                    </div>
+                  )}
+                </div>
+                {!isProtected && (
+                  <>
+                    <button onClick={() => editProject(i)} className="text-sm mr-3" style={{ color: 'var(--ios-blue)' }}>Edit</button>
+                    <button onClick={() => deleteProject(i)} className="text-sm" style={{ color: 'var(--ios-red)' }}>Delete</button>
+                  </>
+                )}
+              </div>
+            );
+          })}
+          <div className="ios-row cursor-pointer" onClick={addProject}>
+            <div className="cat-dot-lg mr-3" style={{ background: 'var(--ios-blue)' }}></div>
+            <div className="flex-1 text-[15px]" style={{ color: 'var(--ios-blue)' }}>Add project</div>
+          </div>
+          <div className="ios-row cursor-pointer" onClick={() => setShowBulkTool(true)}>
+            <span style={{ color: 'var(--ios-blue)' }} className="mr-3 text-[15px]">⇄</span>
+            <div className="flex-1 text-[15px]" style={{ color: 'var(--ios-blue)' }}>Bulk reassign expenses</div>
+          </div>
+        </div>
+        <div className="ios-footer-text">
+          Use projects to separate one-off spending like trips or home construction from daily life. The Home and Summary screens default to showing only Daily Life.
+        </div>
+      </div>
+
+      <div className="px-4 mt-5">
+        <div className="ios-section-header">Data</div>
+        <div className="ios-group">
+          <div className="ios-row cursor-pointer" onClick={onExportJSON}>
+            <span className="flex-1 text-[15px]">Backup (JSON)</span>
+            <span style={{ color: 'var(--ios-tertiary)' }}>›</span>
+          </div>
+          <div className="ios-row cursor-pointer" onClick={() => fileRef.current?.click()}>
+            <span className="flex-1 text-[15px]">Restore from backup</span>
+            <span style={{ color: 'var(--ios-tertiary)' }}>›</span>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/json"
+              hidden
+              onChange={(e) => {
+                if (e.target.files?.[0]) {
+                  onImportJSON(e.target.files[0]);
+                  e.target.value = '';
+                }
+              }}
+            />
+          </div>
+          <div className="ios-row cursor-pointer" onClick={onExportCSV}>
+            <span className="flex-1 text-[15px]">Export to CSV</span>
+            <span style={{ color: 'var(--ios-tertiary)' }}>›</span>
+          </div>
+        </div>
+        <div className="ios-footer-text">
+          CSV includes ID, date, description, category, payment, amount, day of week, month, year, and timestamps.
+        </div>
+      </div>
+
+      <div className="px-4 mt-5">
+        <div className="ios-section-header">About</div>
+        <div className="ios-group">
+          <div className="ios-row">
+            <span className="flex-1 text-[15px]">Total expenses</span>
+            <span className="text-[15px] tnum" style={{ color: 'var(--ios-secondary)' }}>{expenses.length}</span>
+          </div>
+          <div className="ios-row">
+            <span className="flex-1 text-[15px]">Version</span>
+            <span className="text-[15px]" style={{ color: 'var(--ios-secondary)' }}>2.3</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="h-20" />
+
+      {showBulkTool && (
+        <BulkReassignTool
+          expenses={expenses}
+          projects={projects}
+          categories={categories}
+          onApply={(matchFn, target) => { onBulkReassign(matchFn, target); setShowBulkTool(false); }}
+          onClose={() => setShowBulkTool(false)}
+        />
+      )}
     </div>
   );
 }
 
-// ---------- SETTINGS ----------
-function Settings({categories,payments,setCategories,setPayments}){
+// ============== BULK REASSIGN TOOL ==============
+function BulkReassignTool({ expenses, projects, categories, onApply, onClose }) {
+  const [mode, setMode] = React.useState("category"); // category | date | amount
+  const [byCategory, setByCategory] = React.useState(categories[0] || "");
+  const [fromDate, setFromDate] = React.useState("");
+  const [toDate, setToDate] = React.useState(todayISO());
+  const [minAmount, setMinAmount] = React.useState("");
+  const [target, setTarget] = React.useState(projects.find(p => p !== "Daily Life") || projects[0] || "Daily Life");
 
-  const [editCat,setEditCat]=React.useState(null);
-  const [editPay,setEditPay]=React.useState(null);
-
-  const updateLocal=(key,data)=>{
-    localStorage.setItem(key,JSON.stringify(data));
+  const matchFn = (e) => {
+    if (mode === "category") return e.category === byCategory;
+    if (mode === "date") {
+      if (fromDate && e.date < fromDate) return false;
+      if (toDate && e.date > toDate) return false;
+      return true;
+    }
+    if (mode === "amount") {
+      const n = Number(minAmount) || 0;
+      return Number(e.amount || 0) >= n;
+    }
+    return false;
   };
 
-  const deleteItem=(arr,setArr,key,i)=>{
-    const newArr=[...arr];
-    newArr.splice(i,1);
-    setArr(newArr);
-    updateLocal(key,newArr);
+  const matchCount = expenses.filter(matchFn).length;
+
+  const handleApply = () => {
+    if (matchCount === 0) { alert("No expenses match these criteria."); return; }
+    if (!confirm(`Reassign ${matchCount} expense${matchCount === 1 ? '' : 's'} to "${target}"?`)) return;
+    onApply(matchFn, target);
   };
 
-  const updateItem=(arr,setArr,key,i,val)=>{
-    const newArr=[...arr];
-    newArr[i]=val;
-    setArr(newArr);
-    updateLocal(key,newArr);
-  };
+  return (
+    <div className="fixed inset-0 z-50 fade-enter" style={{ background: 'var(--ios-bg)' }}>
+      <div className="flex flex-col h-full max-w-md mx-auto">
+        <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-black/5" style={{ background: 'var(--ios-bg)' }}>
+          <button onClick={onClose} className="text-[17px]" style={{ color: 'var(--ios-blue)' }}>Cancel</button>
+          <div className="text-[17px] font-semibold">Bulk Reassign</div>
+          <button onClick={handleApply} className="text-[17px] font-semibold" style={{ color: 'var(--ios-blue)' }}>Apply</button>
+        </div>
 
-  return(
-    <>
-      <div className="bg-white p-4 rounded-xl shadow mb-3">
-        <h3>Categories</h3>
-        {categories.map((c,i)=>(
-          <div key={i} className="flex justify-between mt-2">
-            {editCat===i ? (
-              <input defaultValue={c} onBlur={(e)=>updateItem(categories,setCategories,"categories",i,e.target.value)} />
-            ) : <span onClick={()=>setEditCat(i)}>{c}</span>}
-            <button onClick={()=>deleteItem(categories,setCategories,"categories",i)}>❌</button>
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="ios-footer-text mb-2 px-0">
+            Pick a rule, then choose which project the matching expenses should move to.
           </div>
-        ))}
-      </div>
 
-      <div className="bg-white p-4 rounded-xl shadow">
-        <h3>Payments</h3>
-        {payments.map((p,i)=>(
-          <div key={i} className="flex justify-between mt-2">
-            {editPay===i ? (
-              <input defaultValue={p} onBlur={(e)=>updateItem(payments,setPayments,"payments",i,e.target.value)} />
-            ) : <span onClick={()=>setEditPay(i)}>{p}</span>}
-            <button onClick={()=>deleteItem(payments,setPayments,"payments",i)}>❌</button>
+          <div className="ios-section-header">Match by</div>
+          <div className="seg-control mb-3">
+            <button className={`seg-option ${mode === "category" ? "active" : ""}`} onClick={() => setMode("category")}>Category</button>
+            <button className={`seg-option ${mode === "date" ? "active" : ""}`} onClick={() => setMode("date")}>Date range</button>
+            <button className={`seg-option ${mode === "amount" ? "active" : ""}`} onClick={() => setMode("amount")}>Min amount</button>
           </div>
-        ))}
+
+          {mode === "category" && (
+            <div className="ios-group">
+              <div className="ios-row">
+                <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>Category</span>
+                <select
+                  className="ios-select flex-1"
+                  value={byCategory}
+                  onChange={e => setByCategory(e.target.value)}
+                >
+                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {mode === "date" && (
+            <div className="ios-group">
+              <div className="ios-row">
+                <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>From</span>
+                <input type="date" className="ios-input text-right" value={fromDate} onChange={e => setFromDate(e.target.value)} />
+              </div>
+              <div className="ios-row">
+                <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>To</span>
+                <input type="date" className="ios-input text-right" value={toDate} onChange={e => setToDate(e.target.value)} />
+              </div>
+            </div>
+          )}
+
+          {mode === "amount" && (
+            <div className="ios-group">
+              <div className="ios-row">
+                <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>≥ ₹</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="0"
+                  className="ios-input text-right"
+                  value={minAmount}
+                  onChange={e => setMinAmount(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="ios-section-header">Move to project</div>
+          <div className="ios-group">
+            <div className="ios-row">
+              <span className="w-28 text-[15px]" style={{ color: 'var(--ios-secondary)' }}>Project</span>
+              <select
+                className="ios-select flex-1"
+                value={target}
+                onChange={e => setTarget(e.target.value)}
+              >
+                {projects.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="ios-group mt-4 p-4 text-center">
+            <div className="text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--ios-secondary)' }}>Will affect</div>
+            <div className="text-3xl font-semibold tnum" style={{ color: matchCount > 0 ? 'var(--ios-blue)' : 'var(--ios-tertiary)' }}>
+              {matchCount}
+            </div>
+            <div className="text-[13px]" style={{ color: 'var(--ios-secondary)' }}>
+              {matchCount === 1 ? 'expense' : 'expenses'} → {target}
+            </div>
+          </div>
+        </div>
       </div>
-    </>
+    </div>
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 
 </script>
 </body>
